@@ -1,0 +1,2178 @@
+{
+ "tenantLayout": {
+  "sheet_10000000000001": {
+   "pc": {
+    "sheetDefs": {
+     "itemDefs": {
+      "appextender.sheet_10000000000001.id": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "editable": {
+        "readOnly": true,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": true,
+        "hideProperty": true
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "inputControl": {
+         "readOnly": false,
+         "hideProperty": true
+        }
+       },
+       "componentType": "string",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": true
+      },
+      "appextender.sheet_10000000000001.name": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "inputControl": {
+         "readOnly": true,
+         "hideProperty": false
+        }
+       },
+       "componentType": "string",
+       "representativeNameItem": true,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.name_kana": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "inputControl": {
+         "readOnly": true,
+         "hideProperty": false
+        }
+       },
+       "componentType": "string",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.is_use": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "selectDisplayType": "dropdown",
+        "choices": {
+         "readOnly": false,
+         "hideProperty": true
+        }
+       },
+       "componentType": "select#pulldown",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.memo": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {},
+       "componentType": "string#memo",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.system_reg_user": {
+       "label": {
+        "readOnly": true,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "editable": {
+        "readOnly": true,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {},
+       "componentType": "user",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.system_reg_date": {
+       "label": {
+        "readOnly": true,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "editable": {
+        "readOnly": true,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {},
+       "componentType": "datetime",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.system_upd_user": {
+       "label": {
+        "readOnly": true,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "editable": {
+        "readOnly": true,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {},
+       "componentType": "user",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.system_upd_date": {
+       "label": {
+        "readOnly": true,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "editable": {
+        "readOnly": true,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {},
+       "componentType": "datetime",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_pulldown1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "前進",
+        "increaseColor": "#DBF8E6",
+        "decreaseLabel": "後退",
+        "decreaseColor": "#FFDDDF",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "selectDisplayType": "dropdown",
+        "choices": {
+         "readOnly": false,
+         "hideProperty": false
+        }
+       },
+       "componentType": "select#pulldown",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_radio_button1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "前進",
+        "increaseColor": "#DBF8E6",
+        "decreaseLabel": "後退",
+        "decreaseColor": "#FFDDDF",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "selectDisplayType": "radio",
+        "choices": {
+         "readOnly": false,
+         "hideProperty": false
+        }
+       },
+       "componentType": "select#radio",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_checkbox1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "selectDisplayType": "checkbox",
+        "choices": {
+         "readOnly": false,
+         "hideProperty": false
+        }
+       },
+       "componentType": "select#checkbox",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_number1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "増加",
+        "increaseColor": "#DBF8E6",
+        "decreaseLabel": "減少",
+        "decreaseColor": "#FFDDDF",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "number": {
+         "readOnly": false,
+         "hideProperty": false
+        }
+       },
+       "componentType": "number",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_number2": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "増加",
+        "increaseColor": "#DBF8E6",
+        "decreaseLabel": "減少",
+        "decreaseColor": "#FFDDDF",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "number": {
+         "readOnly": false,
+         "hideProperty": false
+        }
+       },
+       "componentType": "number",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_functional_number1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "増加",
+        "increaseColor": "#DBF8E6",
+        "decreaseLabel": "減少",
+        "decreaseColor": "#FFDDDF",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {},
+       "componentType": "number#calculation",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_date1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "前倒し",
+        "increaseColor": "#DBF8E6",
+        "decreaseLabel": "延伸",
+        "decreaseColor": "#FFDDDF",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "dateType": {
+         "dateType": "date",
+         "fixedDateType": null,
+         "readOnly": false,
+         "hideProperty": false
+        }
+       },
+       "componentType": "datetime#date",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_date2": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "前倒し",
+        "increaseColor": "#DBF8E6",
+        "decreaseLabel": "延伸",
+        "decreaseColor": "#FFDDDF",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "dateType": {
+         "dateType": "schedule",
+         "fixedDateType": "schedule",
+         "hideProperty": false,
+         "readOnly": false
+        }
+       },
+       "componentType": "suggest#form<schedule>",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_date3": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "前倒し",
+        "increaseColor": "#DBF8E6",
+        "decreaseLabel": "延伸",
+        "decreaseColor": "#FFDDDF",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "dateType": {
+         "dateType": "task",
+         "fixedDateType": "task",
+         "hideProperty": false,
+         "readOnly": false
+        }
+       },
+       "componentType": "suggest#form<task>",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_time1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "前倒し",
+        "increaseColor": "#DBF8E6",
+        "decreaseLabel": "延伸",
+        "decreaseColor": "#FFDDDF",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {},
+       "componentType": "datetime#time",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_datetime1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "前倒し",
+        "increaseColor": "#DBF8E6",
+        "decreaseLabel": "延伸",
+        "decreaseColor": "#FFDDDF",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {},
+       "componentType": "datetime",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_file1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "allowMultipleFiles": {
+         "readOnly": false,
+         "hideProperty": false
+        },
+        "inputMode": {
+         "readOnly": false,
+         "hideProperty": false,
+         "inputMode": "LOCAL_FILE"
+        }
+       },
+       "componentType": "blob#cms",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_text1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "inputControl": {
+         "readOnly": false,
+         "hideProperty": false
+        }
+       },
+       "componentType": "string",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_textarea1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {},
+       "componentType": "string#memo",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_functional_string1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {},
+       "componentType": "string#calculation",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_link1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "link": {
+         "openType": "newWindow",
+         "iframeHeight": 0,
+         "readOnly": false,
+         "hideProperty": false
+        }
+       },
+       "componentType": "url",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_telno1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {},
+       "componentType": "string#telno",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_address1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {},
+       "componentType": "address",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_email1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "email": {
+         "destination": "to",
+         "readOnly": false,
+         "hideProperty": false
+        }
+       },
+       "componentType": "string#email",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_suggest1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "relation": {
+         "readOnly": false,
+         "hideProperty": false,
+         "relationDisplayType": "text",
+         "relationItems": [
+          {
+           "order": 1,
+           "itemId": "appextender.sheet_10000000000001.type_suggest1@businessplans.businessplan.relational_customer"
+          }
+         ],
+         "searchTargetItemId": "appextender.sheet_10000000000001.type_suggest1@businessplans.businessplan.relational_customer"
+        }
+       },
+       "componentType": "suggest#businessplan",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_suggest2": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "relation": {
+         "readOnly": false,
+         "hideProperty": false,
+         "relationDisplayType": "table",
+         "relationItems": [
+          {
+           "order": 1,
+           "itemId": "appextender.sheet_10000000000001.type_suggest2@deals.deal.relational_product"
+          },
+          {
+           "order": 2,
+           "itemId": "appextender.sheet_10000000000001.type_suggest2@deals.deal.relational_businessplan"
+          },
+          {
+           "order": 3,
+           "itemId": "appextender.sheet_10000000000001.type_suggest2@deals.deal.relational_customer"
+          },
+          {
+           "order": 4,
+           "itemId": "appextender.sheet_10000000000001.type_suggest2@deals.deal.progress"
+          },
+          {
+           "order": 5,
+           "itemId": "appextender.sheet_10000000000001.type_suggest2@deals.deal.business_type"
+          }
+         ],
+         "searchTargetItemId": "appextender.sheet_10000000000001.type_suggest2@deals.deal.relational_product"
+        }
+       },
+       "componentType": "suggest#deal",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_title1": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false,
+        "increaseLabel": "",
+        "increaseColor": "",
+        "decreaseLabel": "",
+        "decreaseColor": "",
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": true
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "section": {
+         "backgroundColor": "#90CAF9",
+         "readOnly": false,
+         "hideProperty": false
+        }
+       },
+       "componentType": "title",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      },
+      "appextender.sheet_10000000000001.type_text2": {
+       "label": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "required": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "editable": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "disabled": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "explanation": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "defaultValue": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "difference": {
+        "enable": false
+       },
+       "authority": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "matrixSetting": {
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "copied": {
+        "copied": true,
+        "readOnly": false,
+        "hideProperty": false
+       },
+       "itemTypeDef": {
+        "inputControl": {
+         "readOnly": false,
+         "hideProperty": false
+        }
+       },
+       "componentType": "string",
+       "representativeNameItem": false,
+       "representativeImageItem": false,
+       "isKey": false
+      }
+     },
+     "sheetTypeDefs": [
+      {
+       "sheetTypes": null,
+       "itemDefs": {
+        "appextender.sheet_10000000000001.id": {
+         "order": 1,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.name": {
+         "order": 5,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.name_kana": {
+         "order": 3,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.is_use": {
+         "order": 11,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.memo": {
+         "order": 12,
+         "displaySpan": 2
+        },
+        "appextender.sheet_10000000000001.system_reg_date": {
+         "order": 15,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.system_reg_user": {
+         "order": 16,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.system_upd_date": {
+         "order": 17,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.system_upd_user": {
+         "order": 18,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_title1": {
+         "order": 19,
+         "displaySpan": 4
+        },
+        "appextender.sheet_10000000000001.type_pulldown1": {
+         "order": 23,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_radio_button1": {
+         "order": 24,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_checkbox1": {
+         "order": 25,
+         "displaySpan": 2
+        },
+        "appextender.sheet_10000000000001.type_number1": {
+         "order": 27,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_number2": {
+         "order": 28,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_date2": {
+         "order": 31,
+         "displaySpan": 2
+        },
+        "appextender.sheet_10000000000001.type_date3": {
+         "order": 32,
+         "displaySpan": 2
+        },
+        "appextender.sheet_10000000000001.type_time1": {
+         "order": 35,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_datetime1": {
+         "order": 36,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_file1": {
+         "order": 37,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_text1": {
+         "order": 38,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_textarea1": {
+         "order": 39,
+         "displaySpan": 2
+        },
+        "appextender.sheet_10000000000001.type_functional_string1": {
+         "order": 40,
+         "displaySpan": 2
+        },
+        "appextender.sheet_10000000000001.type_text2": {
+         "order": 41,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_link1": {
+         "order": 43,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_telno1": {
+         "order": 44,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_email1": {
+         "order": 47,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_suggest1": {
+         "order": 48,
+         "displaySpan": 1
+        },
+        "appextender.sheet_10000000000001.type_suggest2": {
+         "order": 51,
+         "displaySpan": 3
+        }
+       },
+       "mainTabDefs": [],
+       "relationEntryDefs": {},
+       "displaySwitchingKeyDefs": null,
+       "hiddenTabItemKeys": {}
+      }
+     ]
+    }
+   }
+  }
+ },
+ "sheetDefs": [
+  {
+   "sheetId": 17,
+   "sheetName": "sheet_10000000000001",
+   "preSheetDef": null,
+   "primaryItemKey": "appextender.sheet_10000000000001.id",
+   "itemDefs": {
+    "appextender.sheet_10000000000001.id": {
+     "itemId": "appextender.sheet_10000000000001.id",
+     "isSheetReferenceItemDef": true,
+     "isKey": true,
+     "isRequired": false,
+     "labelName": "拡張シートID",
+     "defaultValue": {
+      "ref": null,
+      "applyValue": null,
+      "reference": null,
+      "value": null,
+      "options": null
+     },
+     "isDisabled": false,
+     "isEditable": false,
+     "itemOrder": 1,
+     "isMaster": false,
+     "isDefault": true,
+     "explanation": "",
+     "difference": null,
+     "authority": null,
+     "preSheetItemDefInfo": null,
+     "isName": false,
+     "sheetName": "sheet_10000000000001",
+     "sheetId": 17,
+     "serviceName": "appextender",
+     "entityName": "appextender_10000000000001",
+     "columnName": "appextender_id",
+     "itemType": "ID",
+     "itemTypeDef": {
+      "@type": "IdItemTypeDef"
+     },
+     "isKeywordSearchItem": false
+    },
+    "appextender.sheet_10000000000001.type_text1": {
+     "itemId": "appextender.sheet_10000000000001.type_text1",
+     "isSheetReferenceItemDef": true,
+     "isKey": false,
+     "isRequired": false,
+     "labelName": "テキスト",
+     "defaultValue": {
+      "ref": null,
+      "applyValue": "none",
+      "reference": null,
+      "value": null,
+      "options": null
+     },
+     "isDisabled": false,
+     "isEditable": true,
+     "itemOrder": 23,
+     "isMaster": false,
+     "isDefault": false,
+     "explanation": "",
+     "difference": null,
+     "authority": null,
+     "preSheetItemDefInfo": null,
+     "isName": false,
+     "sheetName": "sheet_10000000000001",
+     "sheetId": 17,
+     "serviceName": "appextender",
+     "entityName": "appextender_10000000000001",
+     "columnName": "col10062",
+     "itemType": "STRING",
+     "itemTypeDef": {
+      "@type": "StringItemTypeDef",
+      "validator": null,
+      "allowHalfWidthNumeric": false,
+      "allowHalfWidthAlphabet": false,
+      "allowFullWidth": false,
+      "asPassword": false,
+      "isNameItem": false
+     },
+     "isKeywordSearchItem": false
+    },
+    "appextender.sheet_10000000000001.type_textarea1": {
+     "itemId": "appextender.sheet_10000000000001.type_textarea1",
+     "isSheetReferenceItemDef": true,
+     "isKey": false,
+     "isRequired": false,
+     "labelName": "テキスト（複数行）",
+     "defaultValue": {
+      "ref": null,
+      "applyValue": "none",
+      "reference": null,
+      "value": null,
+      "options": null
+     },
+     "isDisabled": false,
+     "isEditable": true,
+     "itemOrder": 22,
+     "isMaster": false,
+     "isDefault": false,
+     "explanation": "",
+     "difference": null,
+     "authority": null,
+     "preSheetItemDefInfo": null,
+     "isName": false,
+     "sheetName": "sheet_10000000000001",
+     "sheetId": 17,
+     "serviceName": "appextender",
+     "entityName": "appextender_10000000000001",
+     "columnName": "col10064",
+     "itemType": "MEMO",
+     "itemTypeDef": {
+      "@type": "StringItemTypeDef",
+      "validator": null,
+      "allowHalfWidthNumeric": true,
+      "allowHalfWidthAlphabet": true,
+      "allowFullWidth": true,
+      "asPassword": false,
+      "isNameItem": false
+     },
+     "isKeywordSearchItem": false
+    },
+    "appextender.sheet_10000000000001.type_text2": {
+     "itemId": null,
+     "isSheetReferenceItemDef": true,
+     "isKey": false,
+     "isRequired": false,
+     "labelName": "the text I added",
+     "defaultValue": {
+      "ref": "",
+      "value": "",
+      "applyValue": "none",
+      "options": {},
+      "reference": null
+     },
+     "isDisabled": false,
+     "isEditable": true,
+     "itemOrder": 32,
+     "isMaster": false,
+     "isDefault": false,
+     "explanation": "",
+     "difference": null,
+     "authority": null,
+     "preSheetItemDefInfo": null,
+     "isName": false,
+     "itemType": "STRING",
+     "itemTypeDef": {
+      "@type": "StringItemTypeDef",
+      "validator": null,
+      "allowHalfWidthNumeric": false,
+      "allowHalfWidthAlphabet": false,
+      "allowFullWidth": false,
+      "asPassword": false,
+      "isNameItem": false
+     },
+     "isKeywordSearchItem": false
+    }
+   },
+   "sheetTypeDef": null,
+   "sheetRelationKeys": [
+    "appextender.sheet_10000000000001.type_date2_schedule",
+    "appextender.sheet_10000000000001.type_date3_task",
+    "appextender.sheet_10000000000001.type_suggest1",
+    "appextender.sheet_10000000000001.type_suggest2"
+   ],
+   "isFollowSupport": true,
+   "isListSupport": true,
+   "isSheetAuthorityTarget": true,
+   "roles": null,
+   "nameItemDef": {
+    "empty": false,
+    "present": true
+   },
+   "systemRegUserItemDef": {
+    "empty": false,
+    "present": true
+   }
+  }
+ ],
+ "deleteItemKeys": [],
+ "initialSheetAuthority": {
+  "editor": {
+   "authorityState": "ALL",
+   "employeeIds": [],
+   "departIds": [],
+   "includeChild": false,
+   "commonGroupIds": [],
+   "extAuthority": []
+  },
+  "viewer": {
+   "authorityState": "DISABLED",
+   "employeeIds": [],
+   "departIds": [],
+   "includeChild": false,
+   "commonGroupIds": [],
+   "extAuthority": []
+  }
+ },
+ "adminSettings": []
+}

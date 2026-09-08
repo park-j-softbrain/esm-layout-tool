@@ -1,0 +1,6 @@
+# HAR captures contain a real tenant's full sheet definitions and auth headers.
+# Never commit them. Regenerate fixtures with test/make-fixtures.js instead.
+*.har
+esm-layout-before-*.json
+node_modules/
+.DS_Store

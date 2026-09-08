@@ -1,0 +1,546 @@
+{
+ "sheetDefs": {
+  "itemDefs": {
+   "appextender.sheet_10000000000001.id": {
+    "itemId": "appextender.sheet_10000000000001.id",
+    "labelName": "拡張シートID",
+    "itemOrder": 0,
+    "itemType": "ID",
+    "itemTypeDef": {
+     "@type": "IdItemTypeDef"
+    }
+   },
+   "appextender.sheet_10000000000001.name": {
+    "itemId": "appextender.sheet_10000000000001.name",
+    "labelName": "名前",
+    "itemOrder": 2,
+    "itemType": "STRING",
+    "itemTypeDef": {
+     "@type": "StringItemTypeDef",
+     "validator": null,
+     "allowHalfWidthNumeric": true,
+     "allowHalfWidthAlphabet": true,
+     "allowFullWidth": true,
+     "asPassword": false,
+     "isNameItem": true
+    }
+   },
+   "appextender.sheet_10000000000001.name_kana": {
+    "itemId": "appextender.sheet_10000000000001.name_kana",
+    "labelName": "名前(かな)",
+    "itemOrder": 3,
+    "itemType": "STRING",
+    "itemTypeDef": {
+     "@type": "StringItemTypeDef",
+     "validator": null,
+     "allowHalfWidthNumeric": true,
+     "allowHalfWidthAlphabet": true,
+     "allowFullWidth": true,
+     "asPassword": false,
+     "isNameItem": false
+    }
+   },
+   "appextender.sheet_10000000000001.is_use": {
+    "itemId": "appextender.sheet_10000000000001.is_use",
+    "labelName": "表示フラグ",
+    "itemOrder": 4,
+    "itemType": "UNUSABLE_FLG",
+    "itemTypeDef": {
+     "@type": "UnusableFlgItemTypeDef",
+     "defaultSelected": true,
+     "isMultiSelect": false,
+     "isBoolean": true,
+     "isUseOptionMap": {
+      "使用可": true,
+      "使用不可": false
+     },
+     "isNotUseOptionMap": {
+      "使用可": false,
+      "使用不可": true
+     },
+     "usableSheetCondition": null,
+     "option_SIZE": 2,
+     "max_OPTION_SIZE": 1000
+    }
+   },
+   "appextender.sheet_10000000000001.memo": {
+    "itemId": "appextender.sheet_10000000000001.memo",
+    "labelName": "メモ",
+    "itemOrder": 5,
+    "itemType": "MEMO",
+    "itemTypeDef": {
+     "@type": "MemoItemTypeDef",
+     "validator": null,
+     "allowHalfWidthNumeric": true,
+     "allowHalfWidthAlphabet": true,
+     "allowFullWidth": true,
+     "asPassword": false,
+     "isNameItem": false
+    }
+   },
+   "appextender.sheet_10000000000001.system_reg_user": {
+    "itemId": "appextender.sheet_10000000000001.system_reg_user",
+    "labelName": "登録者",
+    "itemOrder": 6,
+    "itemType": "USER",
+    "itemTypeDef": {
+     "@type": "UserItemTypeDef",
+     "masterItemName": "USER"
+    }
+   },
+   "appextender.sheet_10000000000001.system_reg_date": {
+    "itemId": "appextender.sheet_10000000000001.system_reg_date",
+    "labelName": "登録日",
+    "itemOrder": 7,
+    "itemType": "DATETIME",
+    "itemTypeDef": {
+     "@type": "DateTimeItemTypeDef"
+    }
+   },
+   "appextender.sheet_10000000000001.system_upd_user": {
+    "itemId": "appextender.sheet_10000000000001.system_upd_user",
+    "labelName": "最終更新者",
+    "itemOrder": 8,
+    "itemType": "USER",
+    "itemTypeDef": {
+     "@type": "UserItemTypeDef",
+     "masterItemName": "USER"
+    }
+   },
+   "appextender.sheet_10000000000001.system_upd_date": {
+    "itemId": "appextender.sheet_10000000000001.system_upd_date",
+    "labelName": "最終更新日",
+    "itemOrder": 9,
+    "itemType": "DATETIME",
+    "itemTypeDef": {
+     "@type": "DateTimeItemTypeDef"
+    }
+   },
+   "appextender.sheet_10000000000001.type_pulldown1": {
+    "itemId": "appextender.sheet_10000000000001.type_pulldown1",
+    "labelName": "プルダウン",
+    "itemOrder": 10,
+    "itemType": "SELECT",
+    "itemTypeDef": {
+     "@type": "SelectItemTypeDef",
+     "defaultSelected": [],
+     "isMultiSelect": false,
+     "isBoolean": false,
+     "max_OPTION_SIZE": 1000
+    }
+   },
+   "appextender.sheet_10000000000001.type_radio_button1": {
+    "itemId": "appextender.sheet_10000000000001.type_radio_button1",
+    "labelName": "ラジオボタン",
+    "itemOrder": 11,
+    "itemType": "SELECT",
+    "itemTypeDef": {
+     "@type": "SelectItemTypeDef",
+     "defaultSelected": [
+      -1
+     ],
+     "isMultiSelect": false,
+     "isBoolean": false,
+     "max_OPTION_SIZE": 1000
+    }
+   },
+   "appextender.sheet_10000000000001.type_checkbox1": {
+    "itemId": "appextender.sheet_10000000000001.type_checkbox1",
+    "labelName": "チェックボックス",
+    "itemOrder": 12,
+    "itemType": "SELECT",
+    "itemTypeDef": {
+     "@type": "SelectItemTypeDef",
+     "defaultSelected": [],
+     "isMultiSelect": true,
+     "isBoolean": false,
+     "max_OPTION_SIZE": 1000
+    }
+   },
+   "appextender.sheet_10000000000001.type_number1": {
+    "itemId": "appextender.sheet_10000000000001.type_number1",
+    "labelName": "数値(小数点14桁)",
+    "itemOrder": 13,
+    "itemType": "NUMBER",
+    "itemTypeDef": {
+     "@type": "NumberItemTypeDef",
+     "decimalDigit": 14,
+     "unitPrefix": null,
+     "unitPostfix": null,
+     "sum": 0,
+     "validScale": true
+    }
+   },
+   "appextender.sheet_10000000000001.type_number2": {
+    "itemId": "appextender.sheet_10000000000001.type_number2",
+    "labelName": "数値(小数点なし)",
+    "itemOrder": 14,
+    "itemType": "NUMBER",
+    "itemTypeDef": {
+     "@type": "NumberItemTypeDef",
+     "decimalDigit": 0,
+     "unitPrefix": null,
+     "unitPostfix": null,
+     "sum": 0,
+     "validScale": true
+    }
+   },
+   "appextender.sheet_10000000000001.type_functional_number1": {
+    "itemId": "appextender.sheet_10000000000001.type_functional_number1",
+    "labelName": "演算（数値）",
+    "itemOrder": 15,
+    "itemType": "FUNCTIONAL_NUMBER",
+    "itemTypeDef": {
+     "@type": "FunctionalNumberItemTypeDef",
+     "sum": 0,
+     "decimalDigit": 0,
+     "unitPrefix": null,
+     "unitPostfix": null
+    }
+   },
+   "appextender.sheet_10000000000001.type_date1": {
+    "itemId": "appextender.sheet_10000000000001.type_date1",
+    "labelName": "日付(通常)",
+    "itemOrder": 16,
+    "itemType": "DATE",
+    "itemTypeDef": {
+     "@type": "DateItemTypeDef"
+    }
+   },
+   "appextender.sheet_10000000000001.type_date2_schedule": {
+    "itemId": "appextender.sheet_10000000000001.type_date2_schedule",
+    "labelName": "日付(スケジュール)",
+    "itemOrder": 17,
+    "itemType": "SB_RELATION",
+    "itemTypeDef": {
+     "@type": "SBRelationItemTypeDef",
+     "sheetName": "schedule",
+     "isPreRelation": false,
+     "isEditable": true,
+     "isMultiple": false,
+     "relationItemType": "NON",
+     "relationSheetDef": null,
+     "isAllcol": false,
+     "sheetDef": null,
+     "reverseRelationItemDef": null,
+     "relationItemKeys": null,
+     "primaryItemKey": "appextender.sheet_10000000000001.type_date2_schedule@schedules.schedule.id",
+     "isJoinReference": true
+    }
+   },
+   "appextender.sheet_10000000000001.type_date2": {
+    "itemId": "appextender.sheet_10000000000001.type_date2",
+    "labelName": "日付(スケジュール)",
+    "itemOrder": 17,
+    "itemType": "DATE",
+    "itemTypeDef": {
+     "@type": "DateItemTypeDef"
+    }
+   },
+   "appextender.sheet_10000000000001.type_date3_task": {
+    "itemId": "appextender.sheet_10000000000001.type_date3_task",
+    "labelName": "日付(タスク)",
+    "itemOrder": 18,
+    "itemType": "SB_RELATION",
+    "itemTypeDef": {
+     "@type": "SBRelationItemTypeDef",
+     "sheetName": "task",
+     "isPreRelation": false,
+     "isEditable": true,
+     "isMultiple": false,
+     "relationItemType": "NON",
+     "relationSheetDef": null,
+     "isAllcol": false,
+     "sheetDef": null,
+     "reverseRelationItemDef": null,
+     "relationItemKeys": null,
+     "primaryItemKey": "appextender.sheet_10000000000001.type_date3_task@tasks.task.id",
+     "isJoinReference": true
+    }
+   },
+   "appextender.sheet_10000000000001.type_date3": {
+    "itemId": "appextender.sheet_10000000000001.type_date3",
+    "labelName": "日付(タスク)",
+    "itemOrder": 18,
+    "itemType": "DATE",
+    "itemTypeDef": {
+     "@type": "DateItemTypeDef"
+    }
+   },
+   "appextender.sheet_10000000000001.type_time1": {
+    "itemId": "appextender.sheet_10000000000001.type_time1",
+    "labelName": "時間",
+    "itemOrder": 19,
+    "itemType": "TIME",
+    "itemTypeDef": {
+     "@type": "TimeItemTypeDef"
+    }
+   },
+   "appextender.sheet_10000000000001.type_datetime1": {
+    "itemId": "appextender.sheet_10000000000001.type_datetime1",
+    "labelName": "日時",
+    "itemOrder": 20,
+    "itemType": "DATETIME",
+    "itemTypeDef": {
+     "@type": "DateTimeItemTypeDef"
+    }
+   },
+   "appextender.sheet_10000000000001.type_file1": {
+    "itemId": "appextender.sheet_10000000000001.type_file1",
+    "labelName": "ファイル",
+    "itemOrder": 21,
+    "itemType": "FILE",
+    "itemTypeDef": {
+     "@type": "FileItemTypeDef",
+     "isMultiSelectable": false
+    }
+   },
+   "appextender.sheet_10000000000001.type_text1": {
+    "itemId": "appextender.sheet_10000000000001.type_text1",
+    "labelName": "テキスト",
+    "itemOrder": 22,
+    "itemType": "STRING",
+    "itemTypeDef": {
+     "@type": "StringItemTypeDef",
+     "validator": null,
+     "allowHalfWidthNumeric": false,
+     "allowHalfWidthAlphabet": false,
+     "allowFullWidth": false,
+     "asPassword": false,
+     "isNameItem": false
+    }
+   },
+   "appextender.sheet_10000000000001.type_textarea1": {
+    "itemId": "appextender.sheet_10000000000001.type_textarea1",
+    "labelName": "テキスト（複数行）",
+    "itemOrder": 23,
+    "itemType": "MEMO",
+    "itemTypeDef": {
+     "@type": "MemoItemTypeDef",
+     "validator": null,
+     "allowHalfWidthNumeric": true,
+     "allowHalfWidthAlphabet": true,
+     "allowFullWidth": true,
+     "asPassword": false,
+     "isNameItem": false
+    }
+   },
+   "appextender.sheet_10000000000001.type_functional_string1": {
+    "itemId": "appextender.sheet_10000000000001.type_functional_string1",
+    "labelName": "演算（文字）",
+    "itemOrder": 24,
+    "itemType": "FUNCTIONAL_STRING",
+    "itemTypeDef": {
+     "@type": "FunctionalStringItemTypeDef"
+    }
+   },
+   "appextender.sheet_10000000000001.type_link1": {
+    "itemId": "appextender.sheet_10000000000001.type_link1",
+    "labelName": "リンク",
+    "itemOrder": 25,
+    "itemType": "URL",
+    "itemTypeDef": {
+     "@type": "URLItemTypeDef",
+     "isFixedDefault": false,
+     "displayText": ""
+    }
+   },
+   "appextender.sheet_10000000000001.type_telno1": {
+    "itemId": "appextender.sheet_10000000000001.type_telno1",
+    "labelName": "電話番号",
+    "itemOrder": 26,
+    "itemType": "TELNO",
+    "itemTypeDef": {
+     "@type": "TelNoItemTypeDef"
+    }
+   },
+   "appextender.sheet_10000000000001.type_address1": {
+    "itemId": "appextender.sheet_10000000000001.type_address1",
+    "labelName": "住所",
+    "itemOrder": 27,
+    "itemType": "ADDRESS",
+    "itemTypeDef": {
+     "@type": "AddressItemTypeDef"
+    }
+   },
+   "appextender.sheet_10000000000001.type_email1": {
+    "itemId": "appextender.sheet_10000000000001.type_email1",
+    "labelName": "メールアドレス",
+    "itemOrder": 28,
+    "itemType": "EMAIL",
+    "itemTypeDef": {
+     "@type": "EmailItemTypeDef"
+    }
+   },
+   "appextender.sheet_10000000000001.type_suggest1": {
+    "itemId": "appextender.sheet_10000000000001.type_suggest1",
+    "labelName": "案件紐づけ項目(テキスト)",
+    "itemOrder": 29,
+    "itemType": "SB_RELATION",
+    "itemTypeDef": {
+     "@type": "SBRelationItemTypeDef",
+     "sheetName": "businessplan",
+     "isPreRelation": false,
+     "isEditable": false,
+     "isMultiple": true,
+     "relationItemType": "NON",
+     "relationSheetDef": null,
+     "isAllcol": false,
+     "sheetDef": null,
+     "reverseRelationItemDef": {
+      "itemId": "businessplans.businessplan.type_suggest10",
+      "itemType": "SB_RELATION",
+      "relationalItemDefPass": [],
+      "refererFunctionalItems": [],
+      "itemTypeDef": {
+       "@type": "SBRelationItemTypeDef",
+       "messages": null,
+       "sheetName": "sheet_10000000000001",
+       "isPreRelation": false,
+       "itemDefs": {},
+       "isEditable": false,
+       "isMultiple": true,
+       "relationItemType": "NON",
+       "relationSheetDef": null,
+       "isAllcol": false,
+       "sheetDef": null,
+       "reverseRelationItemDef": null,
+       "relationItemKeys": null,
+       "primaryItemKey": "appextender.sheet_10000000000001.id",
+       "isJoinReference": true
+      },
+      "sheetName": "businessplan",
+      "sheetId": 5,
+      "isSheetReferenceItemDef": true,
+      "isKey": false,
+      "isSystemColumn": false,
+      "serviceName": "businessplans",
+      "entityName": "businessplan",
+      "columnName": "col123",
+      "isKeywordSearchItem": false,
+      "isName": null,
+      "isRequired": false,
+      "labelName": "案件紐づけ項目(テキスト)（拡張シート）",
+      "defaultValue": {
+       "ref": "",
+       "applyValue": "none",
+       "reference": null,
+       "value": [],
+       "options": {}
+      },
+      "isDisabled": true,
+      "isEditable": true,
+      "itemOrder": 53,
+      "isMaster": false,
+      "isInherit": false,
+      "isDefault": false,
+      "explanation": "",
+      "difference": null,
+      "authority": null,
+      "preSheetItemDefInfo": null,
+      "isDefaultReferenced": false,
+      "isExcludeReadTarget": false,
+      "isGroupMaxTarget": false,
+      "isGroupMinTarget": false,
+      "isGroupCountTarget": false,
+      "isFixedItemDef": null,
+      "containsPrefix": false,
+      "activityTimeSystemMessageKey": null
+     },
+     "relationItemKeys": null,
+     "primaryItemKey": "appextender.sheet_10000000000001.type_suggest1@businessplans.businessplan.id",
+     "isJoinReference": true
+    }
+   },
+   "appextender.sheet_10000000000001.type_suggest2": {
+    "itemId": "appextender.sheet_10000000000001.type_suggest2",
+    "labelName": "取引紐づけ項目(テーブル)",
+    "itemOrder": 30,
+    "itemType": "SB_RELATION",
+    "itemTypeDef": {
+     "@type": "SBRelationItemTypeDef",
+     "sheetName": "deal",
+     "isPreRelation": false,
+     "isEditable": true,
+     "isMultiple": true,
+     "relationItemType": "NON",
+     "relationSheetDef": null,
+     "isAllcol": false,
+     "sheetDef": null,
+     "reverseRelationItemDef": {
+      "itemId": "deals.deal.type_suggest7",
+      "itemType": "SB_RELATION",
+      "relationalItemDefPass": [],
+      "refererFunctionalItems": [],
+      "itemTypeDef": {
+       "@type": "SBRelationItemTypeDef",
+       "messages": null,
+       "sheetName": "sheet_10000000000001",
+       "isPreRelation": false,
+       "itemDefs": {},
+       "isEditable": false,
+       "isMultiple": true,
+       "relationItemType": "NON",
+       "relationSheetDef": null,
+       "isAllcol": false,
+       "sheetDef": null,
+       "reverseRelationItemDef": null,
+       "relationItemKeys": null,
+       "primaryItemKey": "appextender.sheet_10000000000001.id",
+       "isJoinReference": true
+      },
+      "sheetName": "deal",
+      "sheetId": 8,
+      "isSheetReferenceItemDef": true,
+      "isKey": false,
+      "isSystemColumn": false,
+      "serviceName": "deals",
+      "entityName": "deal",
+      "columnName": "col10031",
+      "isKeywordSearchItem": false,
+      "isName": null,
+      "isRequired": false,
+      "labelName": "取引紐づけ項目(テーブル)（拡張シート）",
+      "defaultValue": {
+       "ref": "",
+       "applyValue": "none",
+       "reference": null,
+       "value": [],
+       "options": {}
+      },
+      "isDisabled": true,
+      "isEditable": true,
+      "itemOrder": 46,
+      "isMaster": false,
+      "isInherit": false,
+      "isDefault": false,
+      "explanation": "",
+      "difference": null,
+      "authority": null,
+      "preSheetItemDefInfo": null,
+      "isDefaultReferenced": false,
+      "isExcludeReadTarget": false,
+      "isGroupMaxTarget": false,
+      "isGroupMinTarget": false,
+      "isGroupCountTarget": false,
+      "isFixedItemDef": null,
+      "containsPrefix": false,
+      "activityTimeSystemMessageKey": null
+     },
+     "relationItemKeys": null,
+     "primaryItemKey": "appextender.sheet_10000000000001.type_suggest2@deals.deal.id",
+     "isJoinReference": true
+    }
+   },
+   "appextender.sheet_10000000000001.type_title1": {
+    "itemId": "appextender.sheet_10000000000001.type_title1",
+    "labelName": "以降拡張項目",
+    "itemOrder": 31,
+    "itemType": "SECTION",
+    "itemTypeDef": {
+     "@type": "SectionItemTypeDef"
+    }
+   }
+  }
+ }
+}
