@@ -39,28 +39,39 @@
     '電話番号':          { prefix: 'type_telno',             itemType: 'TELNO',             def: 'TelNoItemTypeDef',            verified: true },
     '住所':              { prefix: 'type_address',           itemType: 'ADDRESS',           def: 'AddressItemTypeDef',          verified: true },
     'メールアドレス':    { prefix: 'type_email',             itemType: 'EMAIL',             def: 'EmailItemTypeDef',            verified: true },
-    '見出し':            { prefix: 'type_title',             itemType: 'SECTION',           def: 'SectionItemTypeDef',          verified: false }
+    '見出し':            { prefix: 'type_title',             itemType: 'SECTION',           def: 'SectionItemTypeDef',          verified: false, fullWidth: true },
+    '紐づけ項目':        { prefix: 'type_suggest',           itemType: 'SB_RELATION',       def: 'SBRelationItemTypeDef',       verified: true,  relation: true, emptyValue: [] }
   };
   // Aliases so the spec sheet can use ASCII or sloppy variants.
   const ALIAS = {
     'text': 'テキスト', 'string': 'テキスト', 'テキスト(複数行)': 'テキスト（複数行）',
     'textarea': 'テキスト（複数行）', 'memo': 'テキスト（複数行）', 'メモ': 'テキスト（複数行）',
+    'テキストエリア': 'テキスト（複数行）', '複数行テキスト': 'テキスト（複数行）',
+    'テキスト（複数行）': 'テキスト（複数行）', '長文テキスト': 'テキスト（複数行）',
     'pulldown': 'プルダウン', 'select': 'プルダウン', 'ドロップダウン': 'プルダウン',
     'radio': 'ラジオボタン', 'checkbox': 'チェックボックス',
     'number': '数値', 'date': '日付', 'time': '時間', 'datetime': '日時',
     'file': 'ファイル', 'link': 'リンク', 'url': 'リンク',
     'tel': '電話番号', 'telno': '電話番号', 'address': '住所',
     'email': 'メールアドレス', 'mail': 'メールアドレス',
-    'section': '見出し', 'heading': '見出し', 'title': '見出し'
+    'section': '見出し', 'heading': '見出し', 'title': '見出し',
+    '紐付け項目': '紐づけ項目', '紐づけ': '紐づけ項目', '紐付け': '紐づけ項目',
+    '関連レコード': '紐づけ項目', 'relation': '紐づけ項目', 'suggest': '紐づけ項目'
   };
   // Types that cannot be created from a name alone. Each needs a reference to
   // other items or sheets that a two-column spec does not carry.
   const UNSUPPORTED = {
     '演算（文字）': '計算式が必要です (defaultValue.ref に式と参照項目を指定)',
     '演算（数値）': '計算式が必要です (defaultValue.ref に式と参照項目を指定)',
-    '紐づけ項目': '参照先シートの指定が必要です (SB_RELATION)'
+    '紐づけ参照': '紐づけ先のどの項目を引くかの指定が必要です'
   };
-  const UNSUP_ALIAS = { '演算(文字)': '演算（文字）', '演算(数値)': '演算（数値）', '紐付け項目': '紐づけ項目', '紐づけ': '紐づけ項目' };
+  const UNSUP_ALIAS = {
+    '演算(文字)': '演算（文字）', '演算(数値)': '演算（数値）',
+    '紐付け参照': '紐づけ参照', '紐付参照': '紐づけ参照', '紐づけ先参照': '紐づけ参照'
+  };
+  // Rows describing fields eSM creates itself. The spec sheet lists the whole
+  // sheet, built-ins included; those are already there and must not be re-added.
+  const SYSTEM_ROW = /^※?\s*システム項目/;
   const unsupportedName = (raw) => {
     const t = String(raw || '').trim();
     if (UNSUPPORTED[t]) return t;
@@ -85,7 +96,11 @@
     design: null,     // GET /design/{sheetName} response
     spec: [],         // parsed rows
     plan: null,       // computed additions
-    sheetName: null
+    sheetName: null,
+    targetDesign: {}, // sheetName -> GET /design/{sheetName}   (link targets)
+    targetLayout: {}, // sheetName -> POST /layout/tenant/search (link targets)
+    targetBaseline: {}, // sheetName -> updatedAt when the target was read
+    targetMaxOrder: {} // sheetName -> highest reverse itemOrder written this run
   };
 
   const log = (msg, cls) => {
@@ -108,7 +123,11 @@
     try {
       const body = JSON.parse(bodyText);
       S.tpl = { url: new URL(url, location.href).href, headers: headers || {}, body };
-      S.sheetName = Object.keys(body.tenantLayout || {})[0] || null;
+      // The URL names the sheet being edited. tenantLayout is NOT a safe source:
+      // saving a 紐づけ項目 puts the link target's sheet in there too, and it can
+      // come first, which would point every later write at the wrong sheet.
+      const um = String(url).match(/\/design\/layout\/([^/?#]+)\/part/);
+      S.sheetName = (um && decodeURIComponent(um[1])) || Object.keys(body.tenantLayout || {})[0] || null;
       log('保存リクエストを取得しました。sheet=' + S.sheetName, 'ok');
       log('  通信方式: ' + (S.profile ? ('withCredentials=' + S.profile.withCredentials +
           ' / headers=' + Object.keys(S.profile.headers).filter((k) => !SKIP_HEADERS.test(k)).join(',')) : '不明'));
@@ -304,6 +323,52 @@
     refresh();
   }
 
+  // One design + one layout read per distinct link target. Both are reads; the
+  // design is what the reverse key is allocated from and the layout is the map
+  // the reverse entry is added to.
+  async function loadTargets(sheetNames) {
+    for (let i = 0; i < sheetNames.length; i++) {
+      const sn = sheetNames[i];
+      if (S.targetDesign[sn] && S.targetLayout[sn]) continue;
+      log('紐づけ先 ' + sn + ' の定義を取得しています…');
+      S.targetDesign[sn] = await req('/design/' + encodeURIComponent(sn) + '?checkAuthorization=false');
+      S.targetLayout[sn] = await req('/layout/tenant/search', { method: 'POST', body: JSON.stringify({ keys: [sn] }) });
+      if (!((S.targetLayout[sn] || {})[sn] || {}).pc) throw new Error('紐づけ先 ' + sn + ' のレイアウトを取得できませんでした');
+      const st = await req('/sheetdef/state/' + encodeURIComponent(sn));
+      S.targetBaseline[sn] = st && st.updatedAt;
+    }
+  }
+
+  // Which target sheets the parsed spec needs, resolved through this sheet's
+  // existing links. Unresolvable names are left for buildPlan to report.
+  function specTargets() {
+    const idx = relationIndex(), out = [];
+    S.spec.forEach((it) => {
+      if (!TYPES[it.type] || !TYPES[it.type].relation) return;
+      const d = idx[norm(it.target)];
+      if (d && out.indexOf(d.sheetName) < 0) out.push(d.sheetName);
+    });
+    return out;
+  }
+
+  // Our PUT replays whole layout maps, so a concurrent edit to any sheet in the
+  // payload would be silently discarded. Check every one of them, including the
+  // link targets the operator is not even looking at.
+  async function checkConcurrentEdits(targets) {
+    if (!S.baselineUpdatedAt) throw new Error('基準時刻が未取得です');
+    const rows = [{ sheetName: S.sheetName, localUpdatedAt: S.baselineUpdatedAt }];
+    (targets || []).forEach((sn) => {
+      if (!S.targetBaseline[sn]) throw new Error('紐づけ先 ' + sn + ' の基準時刻が未取得です');
+      rows.push({ sheetName: sn, localUpdatedAt: S.targetBaseline[sn] });
+    });
+    const chk = await req('/sheetdef/state/isUpdated', { method: 'POST', body: JSON.stringify(rows) });
+    const hit = (chk || []).filter((r) => r && r.isUpdated).map((r) => r.sheetName);
+    if (hit.length) throw new Error('基準時刻以降に他の人が ' + hit.join(', ') + ' を更新しています');
+    return rows.map((r) => r.sheetName);
+  }
+
+  const planTargets = () => Object.keys((S.plan && S.plan.targets) || {});
+
   function existingDefs() {
     // The design response nests itemDefs; take the largest map containing type_ keys.
     let best = {};
@@ -352,49 +417,236 @@
     return ' ';
   }
 
+  /* Column roles, matched against the header row when there is one.
+   * The real onboarding sheets look like:
+   *   No. | 項目名 | 項目タイプ | 紐づけ先レコード | 選択肢 | 選択肢 | 選択肢 ...
+   * i.e. a mostly-empty first column and choices spread across many columns,
+   * so positional guessing alone is not enough. */
+  const HEAD = [
+    ['ignore',      /^\s*(no\.?|№|#|番号)\s*$/i],
+    ['target',      /紐づけ先|紐付け先|紐ずけ先|参照先|関連先|リンク先|target/i],
+    ['options',     /選択肢|セレクト|チェックボックス|option|choice/i],
+    ['required',    /必須|required/i],
+    ['span',        /幅|列数|span/i],
+    ['explanation', /説明|備考|ヘルプ|explanation|description|remark/i],
+    ['label',       /項目名|項目名称|ラベル|名称|名前|label|^name$/i],
+    ['type',        /項目タイプ|項目種別|項目型|タイプ|種別|型|type/i]
+  ];
+
+  function mapHeader(head) {
+    const col = {};
+    head.forEach((cell, i) => {
+      const c = String(cell || '').trim();
+      if (!c) return;
+      for (let j = 0; j < HEAD.length; j++) {
+        if (HEAD[j][1].test(c)) {
+          const role = HEAD[j][0];
+          if (role !== 'ignore' && col[role] === undefined) col[role] = i;
+          return;
+        }
+      }
+    });
+    return col;
+  }
+
+  // Notes written into the choice columns. Three of them carry a real setting
+  // and the rest are prose; anything not recognised is reported, never guessed at.
+  const N2H = (t) => String(t).replace(/[０-９]/g, (d) => '0123456789'['０１２３４５６７８９'.indexOf(d)]);
+  function readNote(note, it) {
+    const t = N2H(String(note));
+    let used = false;
+    let m = t.match(/小数点以下\s*(\d+)\s*桁/);
+    if (m) { it.decimalDigit = Math.min(10, parseInt(m[1], 10)); used = true; }
+    m = t.match(/(?:後ろに)?単位\s*[「『"”]([^」』"”]+)[」』"”]/);
+    if (m && !/前に単位/.test(t)) { it.unitPostfix = m[1]; used = true; }
+    m = t.match(/前に単位\s*[「『"”]([^」』"”]+)[」』"”]/);
+    if (m) { it.unitPrefix = m[1]; used = true; }
+    if (/初期値\s*(本日|今日)/.test(t)) { it.defaultToday = true; used = true; }
+    return used;
+  }
+
   function parseSpec(text) {
     const lines = String(text || '').replace(/\r/g, '').split('\n').filter((l) => l.trim() !== '');
     const delim = detectDelimiter(lines);
     const rows = lines.map((l) => splitLine(l, delim).map((c) => String(c).trim())).filter((r) => r.some((c) => c !== ''));
-    if (!rows.length) return { items: [], errors: [], typeCol: 1, delim: delim };
-    const head = rows[0].map((c) => String(c).trim());
-    const looksHeader = /ラベル|項目名|項目名称|項目種別|項目タイプ|型|種別|label|name|type/i.test(head[0] || '') &&
-                        !resolveType(head[0]) && !unsupportedName(head[0]);
+    if (!rows.length) return { items: [], errors: [], notes: [], col: {}, delim: delim };
+
+    // A header row names its columns and resolves nothing to a type name.
+    let col = mapHeader(rows[0]);
+    const looksHeader = col.label !== undefined && col.type !== undefined &&
+                        !rows[0].some((c) => resolveType(c) || unsupportedName(c));
     const body = looksHeader ? rows.slice(1) : rows;
 
-    // The spec sheet may be "型 / 名前" or "名前 / 型" — decide by which of the
-    // first two columns actually looks like a type name.
-    const score = (c) => body.reduce((n, r) => n + ((resolveType(r[c]) || unsupportedName(r[c])) ? 1 : 0), 0);
-    const typeCol = score(0) > score(1) ? 0 : 1;
-    const labelCol = typeCol === 0 ? 1 : 0;
+    if (!looksHeader) {
+      // No header: find the column that actually holds type names, then take the
+      // nearest column to its left (else right) that is mostly filled as the label.
+      const width = body.reduce((n, r) => Math.max(n, r.length), 0);
+      const typeScore = [];
+      for (let c = 0; c < width; c++) {
+        typeScore[c] = body.reduce((n, r) => n + ((resolveType(r[c]) || unsupportedName(r[c]) || SYSTEM_ROW.test(String(r[c] || ''))) ? 1 : 0), 0);
+      }
+      let tc = 0;
+      for (let c = 1; c < width; c++) if (typeScore[c] > typeScore[tc]) tc = c;
+      const filled = (c) => body.reduce((n, r) => n + (String(r[c] || '').trim() ? 1 : 0), 0);
+      let lc = -1;
+      for (let c = tc - 1; c >= 0; c--) if (filled(c) >= body.length / 2) { lc = c; break; }
+      if (lc < 0) for (let c = tc + 1; c < width; c++) if (filled(c) >= body.length / 2) { lc = c; break; }
+      if (lc < 0) lc = tc === 0 ? 1 : 0;
+      col = { type: tc, label: lc };
+      // The historical 6-column shape: ラベル/型/必須/選択肢/幅/説明.
+      if (width > 2 && Math.min(tc, lc) === 0 && Math.max(tc, lc) === 1) {
+        col.required = 2; col.options = 3; col.span = 4; col.explanation = 5;
+      }
+    }
+    if (col.options === undefined) col.options = Math.max(col.label, col.type) + 1;
 
-    const items = [], errors = [];
+    const optCells = (r) => r.slice(col.options).map((c) => String(c || '').trim()).filter(Boolean);
+
+    const items = [], errors = [], notes = [];
+    let prev = null;
     body.forEach((r, i) => {
       const line = (looksHeader ? i + 2 : i + 1);
-      const label = String(r[labelCol] || '').trim();
-      const rawType = String(r[typeCol] || '').trim();
+      const label = String(r[col.label] || '').trim();
+      const rawType = String(r[col.type] || '').trim();
+      const cells = optCells(r);
+
+      // A choice list too long for one row continues on the next, with the
+      // name and type columns left blank.
+      if (!label && !rawType) {
+        if (prev && cells.length) { prev.__cells = prev.__cells.concat(cells); return; }
+        return;
+      }
       if (!label) { errors.push('行' + line + ': 項目名が空です'); return; }
+      if (!rawType) { notes.push('行' + line + ': 「' + label + '」は項目タイプが空のため飛ばします'); return; }
+      if (SYSTEM_ROW.test(rawType)) { notes.push('行' + line + ': 「' + label + '」はシステム項目のため飛ばします'); return; }
+
       const bad = unsupportedName(rawType);
       if (bad) { errors.push('行' + line + ': 「' + label + '」の型 ' + bad + ' はこのツールでは追加できません — ' + UNSUPPORTED[bad] + '。手動で追加してください'); return; }
       const type = resolveType(rawType);
       if (!type) { errors.push('行' + line + ': 型「' + rawType + '」は未対応です'); return; }
-      const opts = String(r[3] || '').split(/[,、\n]/).map((s) => s.trim()).filter(Boolean);
-      if (TYPES[type].itemType === 'SELECT' && !opts.length) { errors.push('行' + line + ': 「' + label + '」は選択肢が必要です'); return; }
-      const span = parseInt(String(r[4] || '1').trim(), 10);
-      items.push({
+
+      const span = parseInt(String(r[col.span] || '1').trim(), 10);
+      const it = {
         line, label, type,
-        required: isTrue(r[2]),
-        options: opts,
-        span: (span === 2 ? 2 : 1),
-        explanation: String(r[5] || '').trim()
-      });
+        required: col.required !== undefined ? isTrue(r[col.required]) : false,
+        target: col.target !== undefined ? String(r[col.target] || '').trim() : '',
+        options: [],
+        span: TYPES[type].fullWidth ? 4 : ([1, 2, 3, 4].indexOf(span) >= 0 ? span : 1),
+        explanation: col.explanation !== undefined ? String(r[col.explanation] || '').trim() : '',
+        __cells: cells
+      };
+      items.push(it);
+      prev = it;
     });
-    return { items, errors, typeCol, delim: delim };
+
+    // Second pass: split each row's trailing cells into choices and notes.
+    items.forEach((it) => {
+      const isSelect = TYPES[it.type].itemType === 'SELECT';
+      const cells = it.__cells; delete it.__cells;
+      const opts = [];
+      cells.forEach((c) => {
+        // A cell opening with ※ is an instruction to the operator, never a choice.
+        if (/^[※*＊]/.test(c) || !isSelect) {
+          if (!readNote(c, it)) notes.push('行' + it.line + ': 「' + it.label + '」の備考は反映しません: ' + c);
+          return;
+        }
+        opts.push(c);
+      });
+      // One cell holding "a,b,c" is the older single-column form; several cells
+      // means the choices are already one per column and must not be re-split.
+      it.options = (opts.length === 1 && /[,、]/.test(opts[0]))
+        ? opts[0].split(/[,、]/).map((x) => x.trim()).filter(Boolean)
+        : opts;
+      if (isSelect && !it.options.length) errors.push('行' + it.line + ': 「' + it.label + '」は選択肢が必要です');
+      if (TYPES[it.type].relation && !it.target) errors.push('行' + it.line + ': 「' + it.label + '」は紐づけ先レコードの指定が必要です');
+    });
+
+    return { items: items.filter((it) => !(TYPES[it.type].itemType === 'SELECT' && !it.options.length) && !(TYPES[it.type].relation && !it.target)), errors, notes, col, delim: delim };
   }
 
   /* ------------------------------------------------------------------ *
    * 3. Plan
    * ------------------------------------------------------------------ */
+  const norm = (t) => String(t || '').normalize('NFKC').replace(/[\s\u3000]/g, '').toLowerCase();
+
+  // A 紐づけ項目 cannot be written from a name alone: it carries the target
+  // sheet's own id definition. We never author that — we copy it from a link to
+  // the same sheet that already exists here, exactly as the rest of this tool
+  // copies the save request instead of synthesising one. A target this sheet has
+  // never linked to therefore needs its first field made by hand.
+  function relationDonors() {
+    const out = {};
+    Object.keys(existingDefs()).forEach((k) => {
+      const d = existingDefs()[k];
+      if (!d || d.itemType !== 'SB_RELATION') return;
+      const td = d.itemTypeDef || {};
+      if (!td.sheetName || out[td.sheetName]) return;
+      const nested = td.itemDefs || {};
+      const idKey = Object.keys(nested).filter((n) => /\.id$/.test(n))[0];
+      if (!idKey) return;
+      out[td.sheetName] = {
+        sheetName: td.sheetName, donorKey: k, idDef: nested[idKey],
+        reverseLabel: String((td.reverseRelationItemDef || {}).labelName || '')
+      };
+    });
+    return out;
+  }
+
+  // Spec sheets name the target the way a user sees it ("業者"), not as
+  // "sheet_134". The target's own id field is labelled "業者ID", so the existing
+  // links on this sheet already carry the mapping.
+  function relationIndex() {
+    const donors = relationDonors(), idx = {};
+    Object.keys(donors).forEach((sn) => {
+      const d = donors[sn];
+      idx[norm(sn)] = d;
+      const disp = String((d.idDef || {}).labelName || '').replace(/(ID|コード|CODE)$/i, '').trim();
+      if (!disp) return;
+      const n = norm(disp);
+      // Two targets whose id fields carry the same label cannot be told apart by
+      // name. Drop both rather than picking one, so the spec must say sheet_N.
+      if (idx[n] && idx[n].sheetName !== sn) idx[n] = { ambiguous: [idx[n].sheetName, sn] };
+      else if (!idx[n]) idx[n] = d;
+    });
+    return idx;
+  }
+
+  // Every reverse link on this sheet is labelled "<名前>（<このシート>）", so the
+  // sheet's own display name comes back out of them.
+  function currentSheetLabel() {
+    const donors = relationDonors();
+    const keys = Object.keys(donors);
+    for (let i = 0; i < keys.length; i++) {
+      const m = donors[keys[i]].reverseLabel.match(/[（(]([^（）()]+)[）)]\s*$/);
+      if (m) return m[1];
+    }
+    return S.sheetName;
+  }
+
+  const maxSuffix = (keys, prefix) => keys.reduce((n, k) => {
+    const m = String(k).match(new RegExp('\\.' + prefix + '(\\d+)$'));
+    return m ? Math.max(n, parseInt(m[1], 10)) : n;
+  }, 0);
+
+  // Where the reverse field lands on the OTHER sheet. Both numbers are read from
+  // that sheet's own definition, never carried over from this one.
+  function targetAllocator(sn) {
+    const design = S.targetDesign[sn];
+    const layout = ((S.targetLayout[sn] || {})[sn] || {});
+    if (!design) return null;
+    // Take the sheetDef that IS this sheet, not merely the last one present.
+    const all = design.sheetDefs || [];
+    const own = all.filter((sd) => sd && sd.itemDefs && sd.sheetName === sn);
+    const defs = ((own[0] || all.filter((sd) => sd && sd.itemDefs)[0]) || {}).itemDefs || {};
+    const layoutDefs = (((layout.pc || {}).sheetDefs || {}).itemDefs) || {};
+    // The layout map is rolled forward after every batch, so keys added earlier
+    // in this run are counted here and cannot be handed out twice.
+    const keys = Object.keys(defs).concat(Object.keys(layoutDefs));
+    let order = S.targetMaxOrder[sn] || 0;
+    Object.keys(defs).forEach((k) => { const d = defs[k]; if (d && typeof d.itemOrder === 'number') order = Math.max(order, d.itemOrder); });
+    return { sheetName: sn, used: new Set(keys), next: maxSuffix(keys, 'type_suggest') + 1, itemOrder: order + 1, count: Object.keys(defs).length };
+  }
+
   function buildPlan() {
     const defs = existingDefs();
     const layoutDefs = layoutItemDefs(S.tpl.body);
@@ -412,38 +664,122 @@
 
     let maxItemOrder = 0;
     Object.values(allDefs).forEach((d) => { if (d && typeof d.itemOrder === 'number') maxItemOrder = Math.max(maxItemOrder, d.itemOrder); });
-    // `order` is a sparse grid position (observed: 1,3,5,11,12,15,...,51) and each
-    // item occupies `displaySpan` cells. Inserting mid-layout renumbers every
-    // following item; the exact arithmetic is not established, so we only ever
-    // append past the end and never touch an existing item's order.
-    let maxOrder = 0;
-    Object.values(place).forEach((p) => {
-      if (p && typeof p.order === 'number') maxOrder = Math.max(maxOrder, p.order + (p.displaySpan || 1));
-    });
-    const ORDER_GAP = 4;   // leave a clear row boundary after the existing layout
 
-    const nextIndex = (prefix) => {
-      let n = 0;
-      usedKeys.forEach((k) => {
-        const m = k.match(new RegExp('\\.' + prefix + '(\\d+)$'));
-        if (m) n = Math.max(n, parseInt(m[1], 10));
-      });
-      return n + 1;
-    };
+    // `order` is a cell index in a 4-wide grid: an item at order o sits in the
+    // row that starts at the nearest lower row boundary, and a full-width item
+    // (見出し) must begin one. The phase comes from the sheet's own layout rather
+    // than being assumed. We only ever append past the end — inserting mid-layout
+    // renumbers everything after it and is not something this tool does.
+    const orders = Object.values(place).map((p) => (p && typeof p.order === 'number') ? p.order : null).filter((o) => o !== null);
+    const GRID = 4;
+    const phase = orders.length ? (Math.min.apply(null, orders) % GRID) : (3 % GRID);
+    let cursor = orders.length ? Object.values(place).reduce((n, p) => Math.max(n, p.order + (p.displaySpan || 1)), 0) : phase;
+    const rowStart = (o) => o + (((phase - o) % GRID) + GRID) % GRID;
+
+    const nextIndex = (prefix) => maxSuffix(Array.from(usedKeys), prefix) + 1;
     const counters = {};
+    const idx = relationIndex();
+    const selfLabel = currentSheetLabel();
+    const alloc = {};
 
     const add = [], skip = [];
+    // Two rows of the same spec sharing a name is a mistake in the spec, not a
+    // field that is already there — the operator has to pick which one they meant.
+    const planned = new Set();
     S.spec.forEach((it) => {
+      if (planned.has(it.label)) {
+        skip.push(Object.assign({ reason: 'この項目リスト内で名前が重複しています（先に出てきた行だけを追加します）' }, it));
+        return;
+      }
       if (existingLabels.has(it.label)) { skip.push(Object.assign({ reason: '同名の項目が既に存在' }, it)); return; }
       const T = TYPES[it.type];
+
+      let rel = null;
+      if (T.relation) {
+        const donor = idx[norm(it.target)];
+        if (donor && donor.ambiguous) {
+          skip.push(Object.assign({ reason: '紐づけ先「' + it.target + '」が ' + donor.ambiguous.join(' と ') + ' のどちらか判別できません（シート名で指定してください）' }, it));
+          return;
+        }
+        if (!donor) {
+          skip.push(Object.assign({ reason: '紐づけ先「' + it.target + '」がこのシートの既存の紐づけ項目に見つかりません' }, it));
+          return;
+        }
+        if (!alloc[donor.sheetName]) {
+          const a = targetAllocator(donor.sheetName);
+          if (!a) { skip.push(Object.assign({ reason: '紐づけ先シート ' + donor.sheetName + ' の定義を取得できていません' }, it)); return; }
+          alloc[donor.sheetName] = a;
+        }
+        const a = alloc[donor.sheetName];
+        const revKey = 'appextender.' + donor.sheetName + '.type_suggest' + (a.next++);
+        // A predicted key that is already taken would overwrite a real field on
+        // the other sheet. Refuse rather than write.
+        if (a.used.has(revKey)) { skip.push(Object.assign({ reason: '紐づけ先 ' + donor.sheetName + ' のキー ' + revKey.split('.').pop() + ' が既に使われています' }, it)); return; }
+        a.used.add(revKey);
+        rel = { donor: donor, target: donor.sheetName, revKey: revKey, revItemOrder: a.itemOrder++, selfLabel: selfLabel };
+      }
+
       if (!(it.type in counters)) counters[it.type] = nextIndex(T.prefix);
       const key = 'appextender.' + S.sheetName + '.' + T.prefix + (counters[it.type]++);
       usedKeys.add(key);
       existingLabels.add(it.label);
-      maxOrder += ORDER_GAP;
-      add.push(Object.assign({ key, itemOrder: ++maxItemOrder, order: maxOrder }, it));
+      planned.add(it.label);
+
+      const span = T.fullWidth ? GRID : (it.span || 1);
+      const order = span > 1 ? rowStart(cursor) : cursor;
+      cursor = order + span;
+      add.push(Object.assign({ key, itemOrder: ++maxItemOrder, order, rel }, it, { span }));
     });
-    return { add, skip };
+    return { add, skip, targets: alloc };
+  }
+
+  // The link itself. `idDef` is the target sheet's own id definition, copied
+  // from a link that already exists here; the reverse half is the field that
+  // appears ON THE TARGET SHEET pointing back at this one.
+  function relationTypeDef(a) {
+    const r = a.rel;
+    const idDef = JSON.parse(JSON.stringify(r.donor.idDef));
+    idDef.relationalItemDefPass = [];
+    const nested = {};
+    nested[a.key + '@' + idDef.itemId] = idDef;
+    return {
+      sheetName: r.target,
+      isMultiple: false,
+      isEditable: false,
+      isAllcol: false,
+      itemDefs: nested,
+      reverseRelationItemKey: null,
+      isPreRelation: false,
+      reverseRelationItemDef: {
+        itemId: r.revKey,
+        isSheetReferenceItemDef: true,
+        isKey: false,
+        isKeywordSearchItem: false,
+        isRequired: false,
+        labelName: a.label + '（' + r.selfLabel + '）',
+        defaultValue: { value: [], ref: '', applyValue: 'none', options: {} },
+        isDisabled: true,
+        isEditable: true,
+        itemOrder: r.revItemOrder,
+        isMaster: false,
+        isDefault: false,
+        explanation: '',
+        difference: null,
+        authority: null,
+        preSheetItemDefInfo: null,
+        itemType: 'SB_RELATION',
+        itemTypeDef: {
+          '@type': 'SBRelationItemTypeDef',
+          sheetName: S.sheetName,
+          isMultiple: true,
+          isEditable: false,
+          isAllcol: false,
+          itemDefs: {},
+          reverseRelationItemDef: null,
+          isPreRelation: false
+        }
+      }
+    };
   }
 
   function makeItemDef(a) {
@@ -458,7 +794,14 @@
     } else if (T.def === 'NumberItemTypeDef') {
       // `sum` is an int, not a bool, and the unit fields are null rather than "".
       // Sending a boolean here is rejected by the gateway as a generic HTTP 500.
-      Object.assign(td, { decimalDigit: 0, unitPrefix: null, unitPostfix: null, sum: 0, validScale: true });
+      Object.assign(td, {
+        decimalDigit: a.decimalDigit || 0,
+        unitPrefix: a.unitPrefix || null,
+        unitPostfix: a.unitPostfix || null,
+        sum: 0, validScale: true
+      });
+    } else if (T.relation) {
+      Object.assign(td, relationTypeDef(a));
     } else if (T.def === 'URLItemTypeDef') {
       Object.assign(td, { displayText: '', isFixedDefault: false });
     } else if (T.def === 'FileItemTypeDef') {
@@ -466,14 +809,18 @@
     } else {
       td.messages = null;
     }
-    const blank = (T.emptyValue !== undefined) ? T.emptyValue : null;
+    const blank = (T.emptyValue !== undefined) ? JSON.parse(JSON.stringify(T.emptyValue)) : null;
+    // "初期値: 本日" on a date field.
+    const dv = (a.defaultToday && T.itemType === 'DATE')
+      ? { ref: '', value: null, applyValue: 'today', options: { day: '0', mode: 'dayBefore' }, reference: null }
+      : { ref: '', value: blank, applyValue: 'none', options: {}, reference: null };
     return {
       itemId: null,
       isSheetReferenceItemDef: true,
       isKey: false,
       isRequired: !!a.required,
       labelName: a.label,
-      defaultValue: { ref: '', value: blank, applyValue: 'none', options: {}, reference: null },
+      defaultValue: dv,
       isDisabled: false,
       isEditable: true,
       itemOrder: a.itemOrder,
@@ -518,6 +865,23 @@
     if (T.itemType === 'SELECT') {
       e.itemTypeDef = Object.assign({}, e.itemTypeDef, { selectDisplayType: T.select, choices: P() });
     }
+    if (T.relation) {
+      // A cloned donor carries ITS target column in relationItems; a new link
+      // starts blank, so this block is written rather than inherited.
+      e.itemTypeDef = { relation: { readOnly: false, hideProperty: false, relationDisplayType: 'text', relationItems: [{ itemId: '', order: 1 }], searchTargetItemId: '' } };
+      e.componentType = 'suggest#sheet';
+      e.representativeNameItem = false;
+      e.representativeImageItem = false;
+      e.isKey = false;
+    }
+    if (T.itemType === 'SECTION') {
+      e.componentType = 'title';
+      // Cloning a 見出し that is already on the sheet keeps its colour, which is
+      // what an operator adding more sections wants. Only invent one if there is none.
+      if (!e.itemTypeDef || !e.itemTypeDef.section) {
+        e.itemTypeDef = { section: { backgroundColor: '#CFD8DC', readOnly: false, hideProperty: false } };
+      }
+    }
     return { entry: e, donor: donorKey || null };
   }
 
@@ -535,11 +899,49 @@
     });
     body.deleteItemKeys = [];
 
+    // A 紐づけ項目 also registers its reverse field on the target sheet, so that
+    // sheet's tenantLayout has to travel with the request. We take the copy the
+    // server just gave us and add entries to it — nothing existing is rewritten.
+    const targets = {};
+    adds.forEach((a) => { if (a.rel) (targets[a.rel.target] = targets[a.rel.target] || []).push(a); });
+    // The captured save may itself have been a link save and still carry someone
+    // else's sheet. Send only this sheet plus the targets this batch needs.
+    Object.keys(body.tenantLayout || {}).forEach((sn) => {
+      if (sn !== S.sheetName && !targets[sn]) delete body.tenantLayout[sn];
+    });
+    Object.keys(targets).forEach((sn) => {
+      const fetched = (S.targetLayout[sn] || {})[sn];
+      if (!fetched) throw new Error('内部エラー: 紐づけ先 ' + sn + ' のレイアウトが未取得です');
+      const tl = JSON.parse(JSON.stringify(fetched));
+      const defsMap = ((tl.pc || {}).sheetDefs || {}).itemDefs;
+      if (!defsMap) throw new Error('内部エラー: 紐づけ先 ' + sn + ' のレイアウト形式が想定と異なります');
+      targets[sn].forEach((a) => {
+        if (defsMap[a.rel.revKey]) throw new Error('内部エラー: 紐づけ先 ' + sn + ' の ' + a.rel.revKey + ' は既に存在します');
+        defsMap[a.rel.revKey] = {
+          isKey: false, label: P(), copied: { copied: true, readOnly: false, hideProperty: false },
+          disabled: P(), editable: P(), required: P(), authority: P(),
+          difference: { enable: false }, explanation: P(),
+          itemTypeDef: { relation: { readOnly: false, hideProperty: false, relationItems: [], searchTargetItemId: '', relationDisplayType: 'text' } },
+          defaultValue: P(), componentType: 'suggest#sheet', matrixSetting: P(),
+          representativeNameItem: false, representativeImageItem: false
+        };
+      });
+      // Additive only, on the other sheet as much as on this one.
+      const before = ((fetched.pc || {}).sheetDefs || {}).itemDefs || {};
+      const touched = Object.keys(before).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(defsMap[k]));
+      if (touched.length) throw new Error('内部エラー: 紐づけ先 ' + sn + ' の既存項目を変更しようとしました (' + touched.slice(0, 3).join(', ') + ')');
+      body.tenantLayout[sn] = tl;
+    });
+
     // Safety: the only existing entries we may have touched are the ones we added.
     const beforePlace = layoutPlacement(S.tpl.body);
     const afterPlace = layoutPlacement(body);
     const changed = Object.keys(beforePlace).filter((k) => JSON.stringify(beforePlace[k]) !== JSON.stringify(afterPlace[k]));
     if (changed.length) throw new Error('内部エラー: 既存項目の配置を変更しようとしました (' + changed.join(', ') + ')');
+    const beforeDefs = layoutItemDefs(S.tpl.body);
+    const afterDefs = layoutItemDefs(body);
+    const dChanged = Object.keys(beforeDefs).filter((k) => JSON.stringify(beforeDefs[k]) !== JSON.stringify(afterDefs[k]));
+    if (dChanged.length) throw new Error('内部エラー: 既存項目の設定を変更しようとしました (' + dChanged.slice(0, 3).join(', ') + ')');
     return body;
   }
 
@@ -555,6 +957,18 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
 
+  // Spelled into the confirm dialog, not only the log: the reverse fields land
+  // on a sheet the operator is not looking at.
+  function relationWarning(adds) {
+    const per = {};
+    (adds || []).forEach((a) => { if (a.rel) per[a.rel.target] = (per[a.rel.target] || 0) + 1; });
+    const names = Object.keys(per);
+    if (!names.length) return '';
+    return '\n\n【紐づけ項目】このシート以外も変更されます:\n' +
+      names.map((sn) => '  ・' + sn + ' に逆側の項目 ' + per[sn] + ' 件').join('\n') +
+      '\n(eSM で紐づけ項目を手で作ったときと同じ動作です)';
+  }
+
   // One transaction, one PUT. Returns nothing on success, throws on failure.
   async function writeBatch(adds) {
     const payload = buildPayload(adds);
@@ -567,6 +981,24 @@
     }
     await req('/transaction/doCommit', { method: 'POST' });
     S.tpl.body = payload;          // roll the baseline forward
+    // Same for each link target: the next batch must build on the map that now
+    // includes this batch's reverse fields, or it would send them back deleted.
+    Object.keys(payload.tenantLayout || {}).forEach((sn) => {
+      if (sn === S.sheetName) return;
+      const rolled = {}; rolled[sn] = payload.tenantLayout[sn];
+      S.targetLayout[sn] = rolled;
+    });
+    // /design for the target is not re-fetched between batches, so its itemOrder
+    // high-water mark has to be carried forward by hand or the next batch reuses it.
+    adds.forEach((a) => {
+      if (!a.rel) return;
+      S.targetMaxOrder[a.rel.target] = Math.max(S.targetMaxOrder[a.rel.target] || 0, a.rel.revItemOrder);
+    });
+    for (const sn of Object.keys(payload.tenantLayout || {})) {
+      if (sn === S.sheetName) continue;
+      try { const st = await req('/sheetdef/state/' + encodeURIComponent(sn)); S.targetBaseline[sn] = st && st.updatedAt; }
+      catch (e) { S.targetBaseline[sn] = null; }
+    }
     await loadState().catch(() => { S.baselineUpdatedAt = null; });
   }
 
@@ -576,18 +1008,14 @@
     if (!S.plan || !S.plan.add.length) { log('追加対象がありません。', 'err'); return; }
     if (!preflight()) return;
     const adds = S.plan.add.slice();
-    if (!confirm(adds.length + ' 件を1件ずつ追加します。\n失敗した項目はスキップして続行します。\n\nよろしいですか？')) return;
+    if (!confirm(adds.length + ' 件を1件ずつ追加します。\n失敗した項目はスキップして続行します。' +
+                 relationWarning(adds) + '\n\nよろしいですか？')) return;
 
     try {
-      if (!S.baselineUpdatedAt) throw new Error('基準時刻が未取得です');
-      const chk = await req('/sheetdef/state/isUpdated', {
-        method: 'POST',
-        body: JSON.stringify([{ sheetName: S.sheetName, localUpdatedAt: S.baselineUpdatedAt }])
-      });
-      if (chk && chk[0] && chk[0].isUpdated) { log('中止: 他の人がこのシートを更新しています。', 'err'); return; }
-      log('排他チェック OK', 'ok');
+      const names = await checkConcurrentEdits(planTargets());
+      log('排他チェック OK (' + names.join(', ') + ')', 'ok');
     } catch (e) {
-      log('中止: 排他チェックに失敗しました: ' + e.message, 'err');
+      log('中止: ' + e.message, 'err');
       return;
     }
 
@@ -649,24 +1077,16 @@
     const n = S.plan.add.length;
     if (n > 50 && !confirm(n + ' 件を1回のリクエストで追加しようとしています。\n' +
         '件数が多い場合は分けて実行することをおすすめします。\n\nこのまま続行しますか？')) return;
-    if (!confirm(n + ' 件の項目を追加します。よろしいですか？\n(事前に現在の状態を .json で保存します)')) return;
+    if (!confirm(n + ' 件の項目を追加します。' + relationWarning(S.plan.add) +
+                 '\n\nよろしいですか？\n(事前に現在の状態を .json で保存します)')) return;
 
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     download('esm-layout-before-' + S.sheetName + '-' + stamp + '.json', { capturedSave: S.tpl.body, design: S.design });
     log('現在の状態を保存しました (ダウンロードフォルダ)。', 'ok');
 
     try {
-      if (!S.baselineUpdatedAt) throw new Error('基準時刻が未取得です');
-      const chk = await req('/sheetdef/state/isUpdated', {
-        method: 'POST',
-        body: JSON.stringify([{ sheetName: S.sheetName, localUpdatedAt: S.baselineUpdatedAt }])
-      });
-      if (chk && chk[0] && chk[0].isUpdated) {
-        log('中止: 基準時刻(' + S.baselineUpdatedAt + ')以降に他の人がこのシートを更新しています。', 'err');
-        log('画面を再読み込みしてやり直してください。', 'err');
-        return;
-      }
-      log('排他チェック OK (基準時刻 ' + S.baselineUpdatedAt + ')', 'ok');
+      const names = await checkConcurrentEdits(planTargets());
+      log('排他チェック OK (' + names.join(', ') + ' / 基準時刻 ' + S.baselineUpdatedAt + ')', 'ok');
     } catch (e) {
       // Not skippable: our PUT replays the entire layout, so writing without
       // this check risks silently discarding someone else's concurrent edit.
@@ -744,9 +1164,11 @@
     <header><b>${VERSION}</b><button id="elt-close" style="background:#40485a;margin:0">閉じる</button></header>
     <div class="body">
       <div style="color:#8b95a7;margin-bottom:4px">
-        Excel から <b>型 / 項目名 / 必須 / 選択肢 / 幅 / 説明</b> の列をコピーして貼り付け（型と項目名は順不同）
+        Excel の見出し行ごとコピーして貼り付けてください。<br>
+        <b>項目名 / 項目タイプ / 紐づけ先レコード / 選択肢</b>（列の順番は自由・選択肢は何列でも可）<br>
+        ※システム項目の行と、No. 列は自動で読み飛ばします。
       </div>
-      <textarea id="elt-tsv" placeholder="テキスト&#9;担当者名&#9;○&#10;プルダウン&#9;ステータス&#9;&#9;未対応,対応中,完了"></textarea>
+      <textarea id="elt-tsv" placeholder="項目名&#9;項目タイプ&#9;紐づけ先レコード&#9;選択肢&#10;物件名&#9;テキスト&#10;工事担当&#9;紐付け&#9;業者&#10;ステータス&#9;プルダウン&#9;&#9;未対応&#9;対応中&#9;完了"></textarea>
       <div class="elt-runrow">
         <button id="elt-run">一括で実行</button>
         <button id="elt-run-one" class="alt">1件ずつ実行</button>
@@ -793,16 +1215,26 @@
     S.spec = r.items;
     $('elt-preview').innerHTML = '';
     const dn = { '\t': 'タブ区切り', ',': 'カンマ区切り', ' ': 'スペース区切り' }[r.delim] || r.delim;
-    log('形式の判定: ' + dn + ' / ' + (r.typeCol === 0 ? '1列目=型 2列目=項目名' : '1列目=項目名 2列目=型'));
+    const cn = { label: '項目名', type: '項目タイプ', target: '紐づけ先', options: '選択肢', required: '必須', span: '幅', explanation: '説明' };
+    log('形式の判定: ' + dn + ' / ' + Object.keys(cn).filter((k) => r.col[k] !== undefined)
+        .map((k) => (r.col[k] + 1) + '列目=' + cn[k]).join(' '));
     r.errors.forEach((e) => log(e, 'err'));
-    log(r.items.length + ' 行を解析しました。' + (r.errors.length ? ' (' + r.errors.length + ' 行はエラー)' : ''), r.errors.length ? 'err' : 'ok');
+    // Anything the spec said that was not turned into a setting is listed rather
+    // than dropped, so nothing disappears without the operator seeing it.
+    (r.notes || []).forEach((n) => log(n));
+    log(r.items.length + ' 行を解析しました。' +
+        (r.notes && r.notes.length ? ' (' + r.notes.length + ' 行は対象外/備考)' : '') +
+        (r.errors.length ? ' (' + r.errors.length + ' 行はエラー)' : ''), r.errors.length ? 'err' : 'ok');
     try { localStorage.setItem('elt-spec', $('elt-tsv').value); } catch (e) {}
     refresh();
     return r.items.length > 0 && r.errors.length === 0;
   }
   $('elt-parse').onclick = doParse;
 
-  function doDry() {
+  async function doDry() {
+    // Link targets have to be read before the plan can allocate reverse keys.
+    const need = specTargets();
+    if (need.length) await loadTargets(need);
     S.plan = buildPlan();
     const rows = S.plan.add.map((a) => `<tr><td>${esc(a.label)}</td><td>${esc(a.type)}${TYPES[a.type].verified ? '' : ' <span class="elt-warn">⚠未検証</span>'}</td><td>${a.required ? '必須' : ''}</td><td style="color:#8b95a7">${esc(a.key.split('.').pop())}</td></tr>`).join('');
     const skips = S.plan.skip.map((s) => `<tr><td colspan="4" style="color:#8b95a7">スキップ: ${esc(s.label)} (${esc(s.reason)})</td></tr>`).join('');
@@ -818,9 +1250,21 @@
       log('⚠ このシートに既存項目が無い型があります: ' + noDonor.join(', '), 'err');
       log('  この型はレイアウト設定を汎用値で作成します（未検証の経路）。まず1件だけ試してください。', 'err');
     }
+    // Adding a link writes a reverse field onto the OTHER sheet. Say so plainly:
+    // it is the only thing this tool does outside the sheet on screen.
+    const tgt = S.plan.targets || {};
+    const tnames = Object.keys(tgt);
+    if (tnames.length) {
+      log('── 紐づけ項目 ──', 'ok');
+      tnames.forEach((sn) => {
+        const n = S.plan.add.filter((a) => a.rel && a.rel.target === sn).length;
+        log('⚠ 紐づけ先シート ' + sn + ' にも逆側の項目が ' + n + ' 件追加されます（既存 ' + tgt[sn].count + ' 件）。', 'err');
+      });
+      log('  逆側の項目は ' + currentSheetLabel() + ' 側の名前に（' + currentSheetLabel() + '）を付けた名前で、非表示で作られます。', 'err');
+      log('  これは eSM で紐づけ項目を手で作ったときと同じ動作です。', 'err');
+    }
     // Near-duplicate names: a stray space or full/half-width difference would
     // create a second, almost identical field rather than skipping.
-    const norm = (t) => String(t).normalize('NFKC').replace(/[\s\u3000]/g, '').toLowerCase();
     const existing = {};
     Object.values(Object.assign({}, existingDefs(), ((S.tpl.body.sheetDefs || [])[0] || {}).itemDefs || {}))
       .forEach((d) => { if (d && d.labelName) existing[norm(d.labelName)] = d.labelName; });
@@ -834,7 +1278,7 @@
     log('(payload は window.__eltPayload で確認できます)');
     refresh();
   }
-  $('elt-dry').onclick = doDry;
+  $('elt-dry').onclick = () => { doDry().catch((e) => log('ドライラン中止: ' + e.message, 'err')); };
   $('elt-apply').onclick = apply;
   $('elt-apply-one').onclick = applyOneByOne;
 
@@ -847,7 +1291,7 @@
       if (!S.design) { log('既存項目一覧を取得しています…'); await waitForDesign(); }
       if (!preflight()) return;
       if (!doParse()) return;
-      doDry();
+      await doDry();
       if (!S.plan.add.length) { log('追加対象がありません。', 'err'); return; }
       await (mode === 'one' ? applyOneByOne() : apply());
     } catch (e) {
@@ -883,7 +1327,8 @@
 
   window.__esmLayoutTool = {
     S, TYPES, show: () => { panel.style.display = 'flex'; }, restore,
-    parseSpec, buildPlan, buildPayload, request
+    parseSpec, buildPlan, buildPayload, request, checkConcurrentEdits, relationWarning,
+    captureForTest: capture, targetAllocatorForTest: targetAllocator
   };
   try {
     const saved = localStorage.getItem('elt-spec');

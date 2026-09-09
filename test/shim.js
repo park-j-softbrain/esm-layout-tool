@@ -24,9 +24,12 @@ global.XMLHttpRequest.prototype={
   setRequestHeader(k,v){ this.__h[k]=v; },
   send(b){
     global.__xhr.sends.push({method:this.__m,url:this.__u,headers:this.__h,body:b});
+    // Decide the outcome NOW. Reading the mode inside the timer instead would
+    // give every in-flight request whatever the last test happened to set.
+    const mode=global.__xhr.mode, resp=global.__xhr.response;
     setTimeout(()=>{
-      if(global.__xhr.mode==='ok'){ this.status=200; this.responseText='{}'; this.onload&&this.onload(); }
-      else if(global.__xhr.mode==='http500'){ this.status=500; this.responseText='{\"e\":1}'; this.onload&&this.onload(); }
+      if(mode==='ok'){ this.status=200; this.responseText=resp||'{}'; this.onload&&this.onload(); }
+      else if(mode==='http500'){ this.status=500; this.responseText='{\"e\":1}'; this.onload&&this.onload(); }
       else { this.onerror&&this.onerror(); }
     },0);
   }

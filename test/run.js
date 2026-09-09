@@ -167,7 +167,7 @@ console.log('\n=== spec column order + unsupported types ===');
   const fs2=require('fs');
   check('detects 型-first (sample-spec.tsv)', ()=>{
     const r=T.parseSpec(fs2.readFileSync(__dirname+'/../sample-spec.tsv','utf8'));
-    assert.strictEqual(r.typeCol,0,'typeCol='+r.typeCol);
+    assert.strictEqual(r.col.type,0,'type col='+r.col.type);
     assert.strictEqual(r.errors.length,0,r.errors.join('; '));
     assert.strictEqual(r.items.length,14,'items='+r.items.length);
     assert.strictEqual(r.items[0].label,'担当者名');
@@ -178,16 +178,17 @@ console.log('\n=== spec column order + unsupported types ===');
     const rev=fs2.readFileSync(__dirname+'/../sample-spec.tsv','utf8').trim().split('\n')
       .map(l=>{const c=l.split('\t');return [c[1],c[0]].concat(c.slice(2)).join('\t');}).join('\n');
     const r=T.parseSpec(rev);
-    assert.strictEqual(r.typeCol,1,'typeCol='+r.typeCol);
+    assert.strictEqual(r.col.type,1,'type col='+r.col.type);
     assert.strictEqual(r.errors.length,0,r.errors.join('; '));
     assert.strictEqual(r.items[0].label,'担当者名');
   });
-  check('rejects 演算/紐づけ with an explanation', ()=>{
+  check('rejects 演算/紐づけ参照 with an explanation', ()=>{
     const r=T.parseSpec(fs2.readFileSync(__dirname+'/../sample-unsupported.tsv','utf8'));
     assert.strictEqual(r.items.length,0);
     assert.strictEqual(r.errors.length,3,r.errors.join('; '));
     assert.ok(r.errors.every(e=>/追加できません/.test(e)),r.errors.join('; '));
     assert.ok(/計算式/.test(r.errors[0]));
+    assert.ok(/紐づけ先のどの項目/.test(r.errors[2]),r.errors[2]);
   });
   check('all 14 sample rows build a valid payload', ()=>{
     const tpl=loadPut('pulldown');
@@ -314,6 +315,7 @@ console.log('\n=== itemTypeDef shapes match the server model ===');
     const cfg=T.TYPES[typeName];
     const realKey=Object.keys(real).find(k=>new RegExp('\\.'+cfg.prefix+'\\d+$').test(k));
     if(!realKey) return;
+    if(cfg.relation) return;   // needs a link target; covered by the replay below
     check('itemTypeDef shape: '+typeName, ()=>{
       S.spec=[{line:1,label:'__t_'+cfg.prefix,type:typeName,required:false,
                options:cfg.itemType==='SELECT'?['a','b']:[],span:1,explanation:''}];
@@ -434,7 +436,398 @@ console.log('\n=== UI wiring ===');
   });
 }
 
-Promise.all(pending).then(()=>{
-  console.log('\n'+pass+' passed, '+fail+' failed\n');
-  process.exit(fail?1:0);
-});
+
+console.log('\n=== 紐づけ項目 (SB_RELATION) ===');
+{
+  const F=readFix('relation-create.json');
+  // Rebuild the state the app was in when it sent the captured PUT: this sheet
+  // already links to the target once, which is where the donor comes from.
+  function relState(opts){
+    const o=opts||{};
+    const donorKey='appextender.'+F.sheetName+'.type_suggest2';
+    const donor={itemType:'SB_RELATION',labelName:'既存の紐づけ',itemOrder:F.itemOrder-1,
+      itemTypeDef:{'@type':'SBRelationItemTypeDef',sheetName:F.target,
+        itemDefs:{[donorKey+'@'+F.donorIdDef.itemId]:F.donorIdDef},
+        reverseRelationItemDef:{labelName:'既存の紐づけ（'+F.selfLabel+'）'}}};
+    const defs={}; defs[donorKey]=donor;
+    S.design={sheetDefs:[{sheetName:F.sheetName,itemDefs:defs}]};
+    S.sheetName=F.sheetName;
+    // enough of a template to append to; the item key counter must reach 116
+    const place={}, lay={};
+    for(let i=1;i<=(o.existing||115);i++){
+      const k='appextender.'+F.sheetName+'.type_suggest'+i;
+      lay[k]={label:{readOnly:false,hideProperty:false}}; place[k]={order:2+i,displaySpan:1};
+    }
+    S.tpl={url:'https://gw.example/sheet-fs/v1/design/layout/'+F.sheetName+'/part',headers:{},
+      body:{tenantLayout:{[F.sheetName]:{pc:{sheetDefs:{itemDefs:lay,sheetTypeDefs:[{itemDefs:place}]}}}},
+            sheetDefs:[{sheetId:1,sheetName:F.sheetName,itemDefs:{}}],deleteItemKeys:[],
+            initialSheetAuthority:{},adminSettings:{}}};
+    // the target sheet, as /design and /layout/tenant/search would return it
+    const tDefs={}; for(let i=1;i<=(o.targetItems||101);i++)
+      tDefs['appextender.'+F.target+'.type_suggest'+i]={itemOrder:i+23,itemType:'SB_RELATION'};
+    const tLay={}; Object.keys(tDefs).forEach(k=>{tLay[k]={label:{readOnly:false,hideProperty:false}};});
+    S.targetMaxOrder={};
+    S.targetDesign={[F.target]:{sheetDefs:[{sheetName:F.target,itemDefs:tDefs}]}};
+    S.targetLayout={[F.target]:{[F.target]:{pc:{sheetDefs:{itemDefs:tLay,sheetTypeDefs:[{itemDefs:{}}]}}}}};
+    return {donorKey};
+  }
+  const specRow=(label,target)=>({line:1,label:label,type:'紐づけ項目',required:false,
+    target:target||'相手シート',options:[],span:1,explanation:''});
+
+  check('reproduces the captured 紐づけ create payload byte for byte', ()=>{
+    relState();
+    S.spec=[specRow(F.label)];
+    S.plan=T.buildPlan();
+    assert.strictEqual(S.plan.add.length,1,S.plan.skip.map(s=>s.reason).join('; '));
+    const a=S.plan.add[0];
+    assert.strictEqual(a.key,F.newKey,'forward key');
+    assert.strictEqual(a.rel.revKey,F.revKey,'reverse key');
+    assert.strictEqual(a.itemOrder,F.itemOrder,'forward itemOrder');
+    assert.strictEqual(a.rel.revItemOrder,F.revItemOrder,'reverse itemOrder');
+    const gen=T.buildPayload().sheetDefs[0].itemDefs[a.key];
+    assert.deepStrictEqual(gen,F.expected);
+  });
+
+  check('resolves the target sheet from its display name, not just sheet_N', ()=>{
+    relState();
+    S.spec=[specRow('A','相手シート'),specRow('B',F.target)];
+    S.plan=T.buildPlan();
+    assert.strictEqual(S.plan.add.length,2,S.plan.skip.map(s=>s.reason).join('; '));
+    assert.strictEqual(S.plan.add[0].rel.target,F.target);
+    assert.strictEqual(S.plan.add[1].rel.target,F.target);
+  });
+
+  check('refuses a target this sheet has never linked to', ()=>{
+    relState();
+    S.spec=[specRow('A','見たことのないシート')];
+    S.plan=T.buildPlan();
+    assert.strictEqual(S.plan.add.length,0);
+    assert.ok(/見つかりません/.test(S.plan.skip[0].reason),S.plan.skip[0].reason);
+  });
+
+  check('reverse keys are consecutive and never reuse one the target holds', ()=>{
+    relState();
+    S.spec=[specRow('A'),specRow('B'),specRow('C')];
+    S.plan=T.buildPlan();
+    const rev=S.plan.add.map(a=>a.rel.revKey);
+    assert.deepStrictEqual(rev,[102,103,104].map(n=>'appextender.'+F.target+'.type_suggest'+n));
+    const orders=S.plan.add.map(a=>a.rel.revItemOrder);
+    assert.deepStrictEqual(orders,[125,126,127]);
+  });
+
+  check('a reverse key already used on the target is refused, not overwritten', ()=>{
+    relState();
+    // the target already holds type_suggest102, so max+1 would collide
+    S.targetDesign[F.target].sheetDefs[0].itemDefs['appextender.'+F.target+'.type_suggest103']={itemOrder:9};
+    delete S.targetDesign[F.target].sheetDefs[0].itemDefs['appextender.'+F.target+'.type_suggest101'];
+    S.spec=[specRow('A')];
+    S.plan=T.buildPlan();
+    // allocation restarts from the true max (103) so it must not land on 102 either
+    assert.strictEqual(S.plan.add[0].rel.revKey,'appextender.'+F.target+'.type_suggest104');
+  });
+
+  check('the target sheet receives exactly one new entry per link', ()=>{
+    relState();
+    S.spec=[specRow('A'),specRow('B')];
+    S.plan=T.buildPlan();
+    const pl=T.buildPayload();
+    const before=S.targetLayout[F.target][F.target].pc.sheetDefs.itemDefs;
+    const after=pl.tenantLayout[F.target].pc.sheetDefs.itemDefs;
+    const added=Object.keys(after).filter(k=>!(k in before));
+    assert.strictEqual(added.length,2,'added '+added.length);
+    assert.deepStrictEqual(added.sort(),S.plan.add.map(a=>a.rel.revKey).sort());
+    Object.keys(before).forEach(k=>{
+      assert.deepStrictEqual(after[k],before[k],'existing target entry '+k+' was modified');
+    });
+    assert.strictEqual(after[added[0]].componentType,'suggest#sheet');
+  });
+
+  check('the target sheet is not touched when the batch has no links', ()=>{
+    relState();
+    S.spec=[{line:1,label:'ただのテキスト',type:'テキスト',required:false,options:[],span:1,explanation:''}];
+    S.plan=T.buildPlan();
+    const pl=T.buildPayload();
+    assert.deepStrictEqual(Object.keys(pl.tenantLayout),[F.sheetName]);
+  });
+
+  check('a foreign sheet in the captured template is dropped, not resent', ()=>{
+    relState();
+    S.tpl.body.tenantLayout['sheet_99999999999999']={pc:{sheetDefs:{itemDefs:{stale:1}}}};
+    S.spec=[{line:1,label:'ただのテキスト',type:'テキスト',required:false,options:[],span:1,explanation:''}];
+    S.plan=T.buildPlan();
+    assert.deepStrictEqual(Object.keys(T.buildPayload().tenantLayout),[F.sheetName]);
+  });
+
+  // The bug this guards: one transaction per item means the second batch builds
+  // on the fetched target layout. Without rolling it forward, that map is missing
+  // the first batch's reverse field and would send it back deleted.
+  check('a second batch keeps the first batch reverse field on the target', ()=>{
+    relState();
+    S.spec=[specRow('A')];
+    S.plan=T.buildPlan();
+    const first=T.buildPayload();
+    // simulate what writeBatch does after doCommit
+    S.tpl.body=first;
+    S.targetLayout[F.target]={[F.target]:first.tenantLayout[F.target]};
+    S.design.sheetDefs[0].itemDefs[S.plan.add[0].key]=first.sheetDefs[0].itemDefs[S.plan.add[0].key];
+    S.targetMaxOrder[F.target]=S.plan.add[0].rel.revItemOrder;   // what writeBatch records
+    const firstRev=S.plan.add[0].rel.revKey;
+    const firstOrder=S.plan.add[0].rel.revItemOrder;
+
+    S.spec=[specRow('B')];
+    S.plan=T.buildPlan();
+    const second=T.buildPayload();
+    const after=second.tenantLayout[F.target].pc.sheetDefs.itemDefs;
+    assert.ok(after[firstRev],'the first batch reverse field '+firstRev+' vanished from the second payload');
+    assert.notStrictEqual(S.plan.add[0].rel.revKey,firstRev,'the second batch reused the first reverse key');
+    assert.strictEqual(S.plan.add[0].rel.revItemOrder,firstOrder+1,'the second batch reused the first reverse itemOrder');
+  });
+}
+
+console.log('\n=== the real onboarding spec shape ===');
+{
+  const src=require('fs').readFileSync(__dirname+'/../sample-onboarding.tsv','utf8');
+  const r=T.parseSpec(src);
+  const by=l=>r.items.find(i=>i.label===l);
+
+  check('reads the columns from the header row, not from their position', ()=>{
+    assert.strictEqual(r.col.label,1,'label col='+r.col.label);
+    assert.strictEqual(r.col.type,2,'type col='+r.col.type);
+    assert.strictEqual(r.col.target,3,'target col='+r.col.target);
+    assert.strictEqual(r.col.options,4,'options col='+r.col.options);
+  });
+
+  check('a mostly-empty No. column does not become the label column', ()=>{
+    assert.strictEqual(r.items[0].label,'物件　情報');
+    assert.ok(!r.items.some(i=>/^\d+$/.test(i.label)),'a row number was read as a label');
+  });
+
+  check('※システム項目 rows are reported and skipped, never re-added', ()=>{
+    assert.ok(!by('依頼書ID'),'依頼書ID was queued for creation');
+    assert.ok(!by('登録日'),'登録日 was queued for creation');
+    assert.strictEqual(r.notes.filter(n=>/システム項目/.test(n)).length,2,r.notes.join('\n'));
+  });
+
+  check('a choice list continued on the next row is joined to its field', ()=>{
+    assert.deepStrictEqual(by('確認済証交付者').options,
+      ['第一検査機関','第二検査機関','第三検査機関','第四検査機関','第五検査機関']);
+  });
+
+  check('choices spread across columns are not comma-split, and (仮) is a choice', ()=>{
+    assert.deepStrictEqual(by('建方').options,['4t','2tL']);
+    assert.deepStrictEqual(by('設計担当').options,['（仮）']);
+  });
+
+  check('※小数点以下2桁 becomes decimalDigit', ()=>{
+    assert.strictEqual(by('建物面積・延床面積').decimalDigit,2);
+  });
+  check('※後ろに単位「号」 becomes unitPostfix', ()=>{
+    assert.strictEqual(by('確認番号').unitPostfix,'号');
+    assert.ok(!by('確認番号').unitPrefix);
+  });
+  check('※初期値本日 becomes a today default on a date field', ()=>{
+    assert.strictEqual(by('確認年月日').defaultToday,true);
+  });
+
+  check('a remark that carries no setting is reported, not silently dropped', ()=>{
+    assert.ok(r.notes.some(n=>/備考欄：氏名/.test(n)),r.notes.join('\n'));
+    assert.ok(r.notes.some(n=>/赤系/.test(n)),r.notes.join('\n'));
+    assert.deepStrictEqual(by('物件名').options,[]);
+  });
+
+  check('紐づけ and 紐付け both resolve, carrying their target', ()=>{
+    assert.strictEqual(by('建物形状').type,'紐づけ項目');
+    assert.strictEqual(by('建物形状').target,'建物形状');
+    assert.strictEqual(by('基礎').type,'紐づけ項目');
+    assert.strictEqual(by('基礎').target,'業者');
+  });
+
+  check('a 紐づけ row with no target is an error, not a half-built field', ()=>{
+    const bad=T.parseSpec('項目名\t項目タイプ\t紐づけ先レコード\n担当\t紐付け\t\n');
+    assert.strictEqual(bad.items.length,0);
+    assert.ok(/紐づけ先レコード/.test(bad.errors[0]),bad.errors.join('; '));
+  });
+
+  // A row may produce both an item and a remark note, so this counts the rows
+  // each outcome mentions rather than the outcomes themselves. What it rules out
+  // is a row that produced nothing at all — silently dropped.
+  check('no row of the spec is lost: every one is an item, a note or an error', ()=>{
+    const lineOf=t=>{const m=String(t).match(/^行(\d+):/);return m?+m[1]:null;};
+    const seen=new Set();
+    r.items.forEach(i=>seen.add(i.line));
+    r.notes.concat(r.errors).forEach(t=>{const l=lineOf(t); if(l) seen.add(l);});
+    const total=src.trim().split('\n').length;            // header + data rows
+    const continued=[12];                                 // the choice-list overflow row
+    const missing=[];
+    for(let l=2;l<=total;l++) if(!seen.has(l)&&continued.indexOf(l)<0) missing.push(l);
+    assert.deepStrictEqual(missing,[],'these spec rows produced nothing: '+missing.join(','));
+  });
+}
+
+console.log('\n=== grid placement ===');
+{
+  function place(spec,startOrders){
+    const lay={},pl={};
+    (startOrders||[[3,1],[4,1]]).forEach(([o,s],i)=>{
+      const k='appextender.'+SHEET+'.type_text'+(i+1);
+      lay[k]={label:{readOnly:false,hideProperty:false}}; pl[k]={order:o,displaySpan:s};
+    });
+    S.sheetName=SHEET; S.design={sheetDefs:[{itemDefs:{}}]}; S.targetDesign={}; S.targetLayout={};
+    S.tpl={url:'https://gw.example/sheet-fs/v1/design/layout/'+SHEET+'/part',headers:{},
+      body:{tenantLayout:{[SHEET]:{pc:{sheetDefs:{itemDefs:lay,sheetTypeDefs:[{itemDefs:pl}]}}}},
+            sheetDefs:[{sheetId:1,sheetName:SHEET,itemDefs:{}}],deleteItemKeys:[],
+            initialSheetAuthority:{},adminSettings:{}}};
+    S.spec=spec; S.plan=T.buildPlan();
+    return S.plan.add.map(a=>[a.label,a.order,a.span]);
+  }
+  const row=(label,type)=>({line:1,label:label,type:type,required:false,options:type==='プルダウン'?['a']:[],span:1,explanation:''});
+
+  check('plain fields pack four to a row instead of one per row', ()=>{
+    const got=place([row('a','テキスト'),row('b','テキスト'),row('c','テキスト'),row('d','テキスト')]);
+    assert.deepStrictEqual(got.map(g=>g[1]),[5,6,7,8]);
+  });
+
+  check('見出し takes the whole row and starts a new one', ()=>{
+    const got=place([row('a','テキスト'),row('見出し1','見出し'),row('b','テキスト')]);
+    assert.deepStrictEqual(got,[['a',5,1],['見出し1',7,4],['b',11,1]]);
+  });
+
+  check('the row boundary is read from the sheet, not assumed', ()=>{
+    // a sheet whose grid starts at 0 puts row starts on multiples of 4
+    const got=place([row('見出し1','見出し')],[[0,1],[1,1]]);
+    assert.deepStrictEqual(got,[['見出し1',4,4]]);
+  });
+
+  check('an empty layout still places the first 見出し on a row start', ()=>{
+    const got=place([row('見出し1','見出し'),row('a','テキスト')],[]);
+    assert.strictEqual(got[0][2],4);
+    assert.strictEqual(got[1][1],got[0][1]+4);
+  });
+}
+
+console.log('\n=== the sheet under edit is identified by URL ===');
+{
+  check('a link save does not point later writes at the target sheet', ()=>{
+    // tenantLayout key order puts the TARGET first in a real link save
+    const body={tenantLayout:{'sheet_10000000000002':{pc:{}},[SHEET]:{pc:{}}},
+                sheetDefs:[{itemDefs:{}}]};
+    T.captureForTest('https://gw.example/sheet-fs/v1/design/layout/'+SHEET+'/part',{},JSON.stringify(body));
+    assert.strictEqual(S.sheetName,SHEET,'sheetName='+S.sheetName);
+  });
+}
+
+console.log('\n=== duplicate names ===');
+{
+  const row=(label,type)=>({line:1,label:label,type:type,required:false,options:[],span:1,explanation:''});
+  function bare(){
+    S.sheetName=SHEET; S.targetDesign={}; S.targetLayout={};
+    S.design={sheetDefs:[{itemDefs:{['appextender.'+SHEET+'.type_text1']:{labelName:'既にある',itemType:'STRING',itemOrder:1}}}]};
+    S.tpl={url:'https://gw.example/sheet-fs/v1/design/layout/'+SHEET+'/part',headers:{},
+      body:{tenantLayout:{[SHEET]:{pc:{sheetDefs:{itemDefs:{},sheetTypeDefs:[{itemDefs:{}}]}}}},
+            sheetDefs:[{sheetId:1,sheetName:SHEET,itemDefs:{}}],deleteItemKeys:[],
+            initialSheetAuthority:{},adminSettings:{}}};
+  }
+  // The real spec lists 解体 twice, once as 日時 and once as 紐付け.
+  check('a name repeated inside the spec is flagged as a spec problem', ()=>{
+    bare(); S.spec=[row('解体','日時'),row('解体','テキスト')];
+    S.plan=T.buildPlan();
+    assert.strictEqual(S.plan.add.length,1);
+    assert.strictEqual(S.plan.add[0].type,'日時');
+    assert.ok(/項目リスト内/.test(S.plan.skip[0].reason),S.plan.skip[0].reason);
+  });
+  check('a name already on the sheet is flagged as an existing field', ()=>{
+    bare(); S.spec=[row('既にある','テキスト')];
+    S.plan=T.buildPlan();
+    assert.strictEqual(S.plan.add.length,0);
+    assert.ok(/既に存在/.test(S.plan.skip[0].reason),S.plan.skip[0].reason);
+  });
+}
+
+console.log('\n=== concurrency covers the link target too ===');
+{
+  // Mutate the shared recorder in place: other tests hold a reference to it.
+  const X=(global.__xhr=global.__xhr||{sends:[]});
+  const arm=(resp)=>{ X.sends=[]; X.mode='ok'; X.response=resp; return X; };
+  const disarm=()=>{ delete X.response; X.mode='error'; };
+  const base=()=>{
+    S.sheetName='sheet_A'; S.baselineUpdatedAt='2026/09/09 09:00:00';
+    S.profile={headers:{authorization:'Bearer x'},withCredentials:false};
+    S.tpl={url:'https://gateway.example/sheet-fs/v1/design/layout/sheet_A/part',headers:{},body:{}};
+  };
+
+  check('the exclusive check names every sheet the payload writes to', ()=>{
+    base(); S.targetBaseline={'sheet_B':'2026/09/09 08:00:00'};
+    arm(JSON.stringify([{sheetName:'sheet_A',isUpdated:false},{sheetName:'sheet_B',isUpdated:false}]));
+    const sent=X.sends;
+    return T.checkConcurrentEdits(['sheet_B']).then(names=>{
+      disarm();
+      assert.deepStrictEqual(names,['sheet_A','sheet_B']);
+      const body=JSON.parse(sent[sent.length-1].body);
+      assert.deepStrictEqual(body.map(r=>r.sheetName),['sheet_A','sheet_B']);
+      assert.strictEqual(body[1].localUpdatedAt,'2026/09/09 08:00:00');
+    },e=>{disarm();throw e;});
+  });
+
+  check('an edit to the link target aborts the write', ()=>{
+    base(); S.targetBaseline={'sheet_B':'2026/09/09 08:00:00'};
+    arm(JSON.stringify([{sheetName:'sheet_A',isUpdated:false},{sheetName:'sheet_B',isUpdated:true}]));
+    return T.checkConcurrentEdits(['sheet_B']).then(
+      ()=>{disarm();throw new Error('a concurrent edit to the target was not caught');},
+      e=>{disarm();assert.ok(/sheet_B/.test(e.message),e.message);});
+  });
+
+  check('a target with no baseline refuses to write rather than guessing', ()=>{
+    base(); S.targetBaseline={};
+    return T.checkConcurrentEdits(['sheet_B']).then(
+      ()=>{throw new Error('wrote without a baseline for the target');},
+      e=>{assert.ok(/基準時刻/.test(e.message),e.message);});
+  });
+}
+
+// Registered checks can be added anywhere above; this waits for whatever is
+// pending when the file finishes, rather than for a snapshot taken part-way
+// through it — a block appended later would otherwise not be waited on at all.
+(async () => {
+  while (pending.length) await Promise.all(pending.splice(0));
+  console.log('\n' + pass + ' passed, ' + fail + ' failed\n');
+  process.exit(fail ? 1 : 0);
+})();
+
+console.log('\n=== the operator is told about the second sheet ===');
+{
+  const src=require('fs').readFileSync(__dirname+'/../esm-layout-tool.js','utf8');
+  check('both confirm dialogs name the link targets', ()=>{
+    const calls=src.match(/relationWarning\([^)]*\)/g)||[];
+    assert.ok(calls.length>=3,'relationWarning is used '+calls.length+' times; expected a definition plus both confirms');
+    const apply=src.slice(src.indexOf('件の項目を追加します'),src.indexOf('件の項目を追加します')+200);
+    assert.ok(/relationWarning/.test(apply),'the 一括 confirm does not mention the link targets');
+    const one=src.slice(src.indexOf('件を1件ずつ追加します'),src.indexOf('件を1件ずつ追加します')+200);
+    assert.ok(/relationWarning/.test(one),'the 1件ずつ confirm does not mention the link targets');
+  });
+  check('the warning counts links per target and stays silent without them', ()=>{
+    const fn=T.relationWarning;
+    assert.strictEqual(fn([{label:'a'},{label:'b'}]),'');
+    assert.strictEqual(fn([]),'');
+    assert.strictEqual(fn(null),'');
+    const w=fn([{rel:{target:'sheet_B'}},{rel:{target:'sheet_B'}},{rel:{target:'sheet_C'}}]);
+    assert.ok(/sheet_B に逆側の項目 2 件/.test(w),w);
+    assert.ok(/sheet_C に逆側の項目 1 件/.test(w),w);
+  });
+}
+
+console.log('\n=== link target: design is picked by name, not by position ===');
+{
+  const F=readFix('relation-create.json');
+  check('a design listing several sheetDefs uses the one that is the target', ()=>{
+    S.targetMaxOrder={};
+    const wrong={}; wrong['appextender.other.type_suggest900']={itemOrder:9000};
+    const right={}; right['appextender.'+F.target+'.type_suggest7']={itemOrder:70};
+    S.targetDesign={[F.target]:{sheetDefs:[
+      {sheetName:F.target,itemDefs:right},
+      {sheetName:'sheet_other',itemDefs:wrong}]}};
+    S.targetLayout={[F.target]:{[F.target]:{pc:{sheetDefs:{itemDefs:{}}}}}};
+    const a=T.targetAllocatorForTest(F.target);
+    assert.strictEqual(a.itemOrder,71,'took itemOrder from the wrong sheetDef');
+    assert.strictEqual(a.next,8,'took the key counter from the wrong sheetDef');
+  });
+}
