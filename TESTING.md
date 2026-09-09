@@ -39,9 +39,14 @@ reverse order too — swap the two columns and re-paste; it should still say
 
 ## 4. Run
 
-Paste the spec, press **実行**, and the tool captures its template (by pressing
-eSM's own 保存 button once — a no-op save, no junk item), parses, plans, shows
-you what it will add, and asks for confirmation before writing.
+Paste the spec and press one of the two run buttons. Both capture the template
+(by pressing eSM's own 保存 button once — a no-op save, no junk item), parse,
+plan, show you what they will add, and ask for confirmation before writing.
+
+- **一括で実行** — one transaction. All the fields land or none do.
+- **1件ずつ実行** — one transaction per field, failures skipped, and a per-type
+  OK/NG report at the end. Slower, but a rejected field no longer takes the
+  batch with it. Use this on a sheet type you have not run against before.
 
 To inspect first without any chance of writing, use the 個別操作 section and
 press **ドライラン** on its own. You get a table of the 14 items with their generated keys,
@@ -84,7 +89,7 @@ That last one matters most: it is what proves the server accepted our
 Worth five more minutes, because these are what the operator will hit:
 
 - **Consecutive batches** — right after a successful run, paste the next rows
-  and press 実行 again without reloading. It should work straight through; the
+  and run again without reloading. It should work straight through; the
   tool rolls its baseline forward using the payload it just sent.
 - **Duplicates** — re-paste the same spec and apply again. Everything should be
   skipped, nothing added.

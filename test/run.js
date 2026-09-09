@@ -418,6 +418,16 @@ console.log('\n=== UI wiring ===');
       'the first candidate must be the footer primary button, got: '+list.split('\n')[0].trim());
     assert.ok(/sb-footer/.test(list),'sb-footer fallback missing');
   });
+  check('both run modes are primary buttons wired to the same flow', ()=>{
+    assert.ok(/id="elt-run"/.test(src) && /id="elt-run-one"/.test(src),'both primary buttons must exist');
+    assert.ok(/\$\('elt-run'\)\.onclick = \(\) => runAll\('batch'\)/.test(src),'一括 must call runAll(batch)');
+    assert.ok(/\$\('elt-run-one'\)\.onclick = \(\) => runAll\('one'\)/.test(src),'1件ずつ must call runAll(one)');
+    assert.ok(/mode === 'one' \? applyOneByOne\(\) : apply\(\)/.test(src),'runAll must branch on mode');
+  });
+  check('both primary buttons are disabled together while a run is in flight', ()=>{
+    assert.ok(/btns\.forEach\(\(b\) => \{ b\.disabled = true; \}\)/.test(src));
+    assert.ok(/btns\.forEach\(\(b\) => \{ b\.disabled = false; \}\)/.test(src));
+  });
   check('an ambiguous 保存 button is refused rather than guessed', ()=>{
     assert.ok(/hit\.length > 1\)\s*return null/.test(src),
       'multiple matching 保存 buttons must return null so the operator presses it');

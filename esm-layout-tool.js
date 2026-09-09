@@ -613,6 +613,10 @@
     ng.forEach((x) => lines.push('NG  ' + x.item.type + '  ' + x.item.label + '  -- ' + x.error.slice(0, 160)));
     const t = lines.join('\n');
     log('成功 ' + ok.length + ' 件 / 失敗 ' + ng.length + ' 件', ng.length ? 'err' : 'ok');
+    if (ng.length) {
+      log('貼り付けた項目リストはそのまま残しています。原因を直してもう一度実行すると、', 'ok');
+      log('追加済みの項目は自動でスキップされ、失敗した分だけが再試行されます。', 'ok');
+    }
     log(t);
     try { navigator.clipboard.writeText(t); log('(結果をクリップボードにコピーしました)', 'ok'); } catch (e) {}
     loadDesign().catch(() => {});
@@ -722,6 +726,9 @@
   #elt-panel button{background:#2f6feb;color:#fff;border:0;border-radius:4px;padding:6px 10px;cursor:pointer;font-size:12px;margin:0 4px 4px 0}
   #elt-panel button:disabled{background:#40485a;color:#8b95a7;cursor:not-allowed}
   #elt-panel button.danger{background:#c0392b}
+  #elt-panel .elt-runrow{display:flex;gap:6px;margin-top:6px}
+  #elt-panel .elt-runrow button{flex:1;margin:0;padding:9px 6px;font-size:13px;font-weight:bold}
+  #elt-panel .elt-runrow button.alt{background:#3d5a80}
   #elt-panel details summary::-webkit-details-marker{color:#8b95a7}
   #elt-log{background:#0d1117;border:1px solid #3d4757;border-radius:4px;padding:6px;height:150px;overflow:auto;
     white-space:pre-wrap;word-break:break-all;font:11px/1.4 Consolas,monospace;margin-top:6px}
@@ -740,8 +747,15 @@
         Excel から <b>型 / 項目名 / 必須 / 選択肢 / 幅 / 説明</b> の列をコピーして貼り付け（型と項目名は順不同）
       </div>
       <textarea id="elt-tsv" placeholder="テキスト&#9;担当者名&#9;○&#10;プルダウン&#9;ステータス&#9;&#9;未対応,対応中,完了"></textarea>
-      <button id="elt-run" style="width:100%;padding:9px;font-size:13px;font-weight:bold;margin-top:6px">実行</button>
-      <div style="color:#8b95a7;margin:4px 0 0">取得 → 解析 → 確認 → 追加 まで通しで実行します</div>
+      <div class="elt-runrow">
+        <button id="elt-run">一括で実行</button>
+        <button id="elt-run-one" class="alt">1件ずつ実行</button>
+      </div>
+      <div style="color:#8b95a7;margin:4px 0 0">
+        どちらも 取得 → 解析 → 確認 → 追加 まで通しで実行します。<br>
+        <b>一括</b>: 1トランザクション。全部成功か、全部失敗。<br>
+        <b>1件ずつ</b>: 失敗した項目だけ飛ばして続行し、型ごとの成否を報告します。
+      </div>
       <div id="elt-status" style="margin-top:6px">状態: 保存リクエスト未取得</div>
       <details style="margin-top:6px">
         <summary style="cursor:pointer;color:#8b95a7">個別操作（うまくいかないとき）</summary>
@@ -749,8 +763,8 @@
           <button id="elt-capture">保存リクエスト取得</button>
           <button id="elt-parse">解析</button>
           <button id="elt-dry" disabled>ドライラン</button>
-          <button id="elt-apply" class="danger" disabled>適用</button>
-          <button id="elt-onebyone" class="danger" disabled>1件ずつ実行</button>
+          <button id="elt-apply" class="danger" disabled>適用（一括）</button>
+          <button id="elt-apply-one" class="danger" disabled>適用（1件ずつ）</button>
           <button id="elt-reload" style="background:#40485a">項目一覧を再取得</button>
         </div>
       </details>
@@ -822,11 +836,11 @@
   }
   $('elt-dry').onclick = doDry;
   $('elt-apply').onclick = apply;
-  $('elt-onebyone').onclick = applyOneByOne;
+  $('elt-apply-one').onclick = applyOneByOne;
 
-  async function runAll() {
-    const btn = $('elt-run');
-    btn.disabled = true;
+  async function runAll(mode) {
+    const btns = [$('elt-run'), $('elt-run-one')];
+    btns.forEach((b) => { b.disabled = true; });
     try {
       if (!$('elt-tsv').value.trim()) { log('項目リストを貼り付けてください。', 'err'); return; }
       if (!S.tpl) await autoCapture();
@@ -835,15 +849,16 @@
       if (!doParse()) return;
       doDry();
       if (!S.plan.add.length) { log('追加対象がありません。', 'err'); return; }
-      await apply();
+      await (mode === 'one' ? applyOneByOne() : apply());
     } catch (e) {
       log('中止: ' + e.message, 'err');
     } finally {
-      btn.disabled = false;
+      btns.forEach((b) => { b.disabled = false; });
       refresh();
     }
   }
-  $('elt-run').onclick = runAll;
+  $('elt-run').onclick = () => runAll('batch');
+  $('elt-run-one').onclick = () => runAll('one');
   $('elt-capture').onclick = () => autoCapture().catch((e) => log(e.message, 'err'));
   $('elt-reload').onclick = () => {
     if (!S.tpl) { log('先に保存リクエストを取得してください。', 'err'); return; }
@@ -863,7 +878,7 @@
     $('elt-dry').disabled = !(ok && S.spec.length);
     const canWrite = !!(ok && S.design && S.plan && S.plan.add.length);
     $('elt-apply').disabled = !canWrite;
-    $('elt-onebyone').disabled = !canWrite;
+    $('elt-apply-one').disabled = !canWrite;
   }
 
   window.__esmLayoutTool = {
@@ -876,6 +891,6 @@
   } catch (e) {}
 
   log(VERSION + ' を読み込みました。');
-  log('Excel から項目リストを貼り付けて「実行」を押してください。');
+  log('Excel から項目リストを貼り付けて「一括で実行」または「1件ずつ実行」を押してください。');
   refresh();
 })();
