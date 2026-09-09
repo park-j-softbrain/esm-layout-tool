@@ -831,3 +831,68 @@ console.log('\n=== link target: design is picked by name, not by position ===');
     assert.strictEqual(a.next,8,'took the key counter from the wrong sheetDef');
   });
 }
+
+console.log('\n=== a spec pasted without its header row ===');
+{
+  // Exactly the shape an operator gets by copying the data rows only:
+  // 項目名 | 項目タイプ | 紐づけ先レコード | 選択肢…
+  const paste=[
+    '物件　情報\t見出し\t\t赤系の見やすい色で',
+    '依頼書ID\t※システム項目\t\t',
+    '物件名\tテキスト\t\t※備考欄：氏名',
+    '契約支店\t紐付け参照\t案件\t※権限は参照のみ',
+    '工事担当\t紐付け\t案件\t',
+    '建物形状\t紐づけ\t建物形状\t',
+    '設計担当\tプルダウン\t\t（仮）',
+    '確認番号\t数値\t\t※後ろに単位「号」',
+    '確認済証交付者\tプルダウン\t\t第一機関',
+    '\t\t\t第二機関'
+  ].join('\n');
+  const r=T.parseSpec(paste);
+  const by=l=>r.items.find(i=>i.label===l);
+
+  // The old fallback assumed ラベル/型/必須/選択肢 and read 紐づけ先 as 必須,
+  // which cost every link row its target.
+  check('the 紐づけ先 column is found by content, not by position', ()=>{
+    assert.strictEqual(r.col.target,2,'target col='+r.col.target);
+    assert.strictEqual(r.col.options,3,'options col='+r.col.options);
+    assert.strictEqual(r.col.required,undefined,'a target column was mistaken for 必須');
+    assert.strictEqual(by('工事担当').target,'案件');
+    assert.strictEqual(by('建物形状').target,'建物形状');
+  });
+
+  check('a headerless spec still reads choices, remarks and continuations', ()=>{
+    assert.deepStrictEqual(by('確認済証交付者').options,['第一機関','第二機関']);
+    assert.strictEqual(by('確認番号').unitPostfix,'号');
+    assert.deepStrictEqual(by('設計担当').options,['（仮）']);
+    assert.ok(!by('依頼書ID'),'a システム項目 row was queued');
+  });
+
+  check('a headerless 必須 column is still recognised when there is no target', ()=>{
+    const old=T.parseSpec('テキスト\t担当者名\t○\nプルダウン\t状態\t\t未対応,完了\n');
+    assert.strictEqual(old.col.required,2,'required col='+old.col.required);
+    assert.strictEqual(old.col.options,3,'options col='+old.col.options);
+    assert.strictEqual(old.items[0].required,true);
+    assert.deepStrictEqual(old.items[1].options,['未対応','完了']);
+  });
+
+  check('a pulldown with no choices says what to write instead', ()=>{
+    const e=T.parseSpec('改良の有無\tプルダウン\t\t\n').errors[0];
+    assert.ok(/（仮）/.test(e),e);
+  });
+}
+
+console.log('\n=== an unsaved edit on the screen is called out ===');
+{
+  check('a captured template carrying item defs warns that they were committed', ()=>{
+    const logged=[];
+    const el=document.getElementById('elt-log');
+    const before=el.appendChild;
+    el.appendChild=function(n){ logged.push(n.textContent); return before.call(this,n); };
+    T.captureForTest('https://gw.example/sheet-fs/v1/design/layout/'+SHEET+'/part',{},
+      JSON.stringify({tenantLayout:{[SHEET]:{pc:{sheetDefs:{itemDefs:{}}}}},
+                      sheetDefs:[{itemDefs:{'appextender.x.type_text9':{itemId:null}}}]}));
+    el.appendChild=before;
+    assert.ok(logged.some(t=>/未保存の項目が 1 件/.test(t)),logged.join(' | '));
+  });
+}

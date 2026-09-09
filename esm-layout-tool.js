@@ -131,8 +131,15 @@
       log('保存リクエストを取得しました。sheet=' + S.sheetName, 'ok');
       log('  通信方式: ' + (S.profile ? ('withCredentials=' + S.profile.withCredentials +
           ' / headers=' + Object.keys(S.profile.headers).filter((k) => !SKIP_HEADERS.test(k)).join(',')) : '不明'));
-      log('  itemDefs(送信分)=' + Object.keys(((body.sheetDefs || [])[0] || {}).itemDefs || {}).length +
+      const pending = Object.keys(((body.sheetDefs || [])[0] || {}).itemDefs || {});
+      log('  itemDefs(送信分)=' + pending.length +
           ' / レイアウト項目=' + Object.keys(layoutItemDefs(body) || {}).length);
+      if (pending.length) {
+        // The template we captured was not an empty save: the screen had unsaved
+        // work on it, and pressing 保存 has just committed that too.
+        log('⚠ 画面に未保存の項目が ' + pending.length + ' 件あり、いま一緒に保存されました。', 'err');
+        log('  意図した変更かどうか確認してください。ツールの追加処理はこの項目を既存として扱います。', 'err');
+      }
       refresh();
       if (S.onCapture) { const f = S.onCapture; S.onCapture = null; try { f(); } catch (e) {} }
       // Give the save a moment to commit before reading the item list back.
@@ -487,18 +494,47 @@
       }
       let tc = 0;
       for (let c = 1; c < width; c++) if (typeScore[c] > typeScore[tc]) tc = c;
-      const filled = (c) => body.reduce((n, r) => n + (String(r[c] || '').trim() ? 1 : 0), 0);
+      const filledIn = (c) => body.reduce((n, r) => n + (String(r[c] || '').trim() ? 1 : 0), 0);
       let lc = -1;
-      for (let c = tc - 1; c >= 0; c--) if (filled(c) >= body.length / 2) { lc = c; break; }
-      if (lc < 0) for (let c = tc + 1; c < width; c++) if (filled(c) >= body.length / 2) { lc = c; break; }
+      for (let c = tc - 1; c >= 0; c--) if (filledIn(c) >= body.length / 2) { lc = c; break; }
+      if (lc < 0) for (let c = tc + 1; c < width; c++) if (filledIn(c) >= body.length / 2) { lc = c; break; }
       if (lc < 0) lc = tc === 0 ? 1 : 0;
       col = { type: tc, label: lc };
-      // The historical 6-column shape: ラベル/型/必須/選択肢/幅/説明.
-      if (width > 2 && Math.min(tc, lc) === 0 && Math.max(tc, lc) === 1) {
-        col.required = 2; col.options = 3; col.span = 4; col.explanation = 5;
+
+      // The remaining columns are told apart by what they contain, not by where
+      // they sit. Assuming a fixed order here read 紐づけ先レコード as 必須 and
+      // cost every link row its target.
+      const start = Math.max(tc, lc) + 1;
+      const taken = {};
+      const isRel = (raw) => {
+        const t = resolveType(raw);
+        return !!((t && TYPES[t].relation) || unsupportedName(raw) === '紐づけ参照');
+      };
+      const relRows = body.filter((r) => isRel(r[tc]));
+      const namedRows = body.filter((r) => !isRel(r[tc]) && String(r[lc] || '').trim());
+      const count = (rows, c) => rows.filter((r) => String(r[c] || '').trim() !== '').length;
+
+      // 紐づけ先: filled on the link rows and on nothing else.
+      if (relRows.length) {
+        for (let c = start; c < width; c++) {
+          if (count(relRows, c) >= Math.ceil(relRows.length / 2) && count(namedRows, c) === 0) {
+            col.target = c; taken[c] = true; break;
+          }
+        }
       }
+      // 必須: every value present is a yes/no marker.
+      for (let c = start; c < width; c++) {
+        if (taken[c]) continue;
+        const vals = body.map((r) => String(r[c] || '').trim()).filter(Boolean);
+        if (vals.length && vals.every((v) => TRUEY.indexOf(v.toLowerCase()) >= 0)) {
+          col.required = c; taken[c] = true; break;
+        }
+      }
+      // Everything left is choices. 幅 and 説明 need a header row: without one,
+      // claiming two more columns would eat a spec whose choices run wide.
+      for (let c = start; c < width; c++) if (!taken[c]) { col.options = c; break; }
     }
-    if (col.options === undefined) col.options = Math.max(col.label, col.type) + 1;
+    if (col.options === undefined) col.options = Math.max(col.label, col.type, col.target === undefined ? -1 : col.target) + 1;
 
     const optCells = (r) => r.slice(col.options).map((c) => String(c || '').trim()).filter(Boolean);
 
@@ -557,7 +593,7 @@
       it.options = (opts.length === 1 && /[,、]/.test(opts[0]))
         ? opts[0].split(/[,、]/).map((x) => x.trim()).filter(Boolean)
         : opts;
-      if (isSelect && !it.options.length) errors.push('行' + it.line + ': 「' + it.label + '」は選択肢が必要です');
+      if (isSelect && !it.options.length) errors.push('行' + it.line + ': 「' + it.label + '」は選択肢が必要です（決まっていなければ他の行と同じく「（仮）」と入れてください）');
       if (TYPES[it.type].relation && !it.target) errors.push('行' + it.line + ': 「' + it.label + '」は紐づけ先レコードの指定が必要です');
     });
 

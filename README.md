@@ -54,6 +54,16 @@ ignored.
 Recognised headers: 項目名 / 項目タイプ / 紐づけ先レコード / 選択肢 / 必須 / 幅 / 説明
 (plus ラベル, 型, 種別, 参照先, label, type, target… — see `HEAD` in the source).
 
+**Without a header row** the columns are still identified, but by content rather
+than position: the type column is the one holding recognisable type names, the
+label column is the filled column nearest to it, 紐づけ先 is the column filled on
+the link rows and on nothing else, and 必須 is a column whose every value is a
+yes/no marker. Whatever is left is choices. 幅 and 説明 need a header — claiming
+two more columns by position would eat a spec whose choices run wide.
+
+Assuming a fixed order here is not a hypothetical mistake: it read
+`紐づけ先レコード` as `必須` on a real paste and cost every link row its target.
+
 - **A No. column is ignored.** It is usually blank on most rows, so a parser that
   guesses by position picks it as the label column and produces 190 fields named
   after row numbers.
@@ -170,7 +180,7 @@ They stay manual until someone captures a HAR of creating one.
 
     node test/run.js
 
-96 checks, no dependencies. The important ones replay real captured saves: the recorded PUT is rolled back
+104 checks, no dependencies. The important ones replay real captured saves: the recorded PUT is rolled back
 to its pre-save state, the tool is asked to recreate the item from a spec row,
 and the generated `itemDefs` entry is compared to what eSM actually sent. Both
 match exactly. Others cover key-index allocation, duplicate skipping, batch
