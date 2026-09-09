@@ -181,7 +181,7 @@ They stay manual until someone captures a HAR of creating one.
 
     node test/run.js
 
-133 checks, no dependencies. The important ones replay real captured saves: the recorded PUT is rolled back
+156 checks, no dependencies. The important ones replay real captured saves: the recorded PUT is rolled back
 to its pre-save state, the tool is asked to recreate the item from a spec row,
 and the generated `itemDefs` entry is compared to what eSM actually sent. Both
 match exactly. Others cover key-index allocation, duplicate skipping, batch
@@ -244,6 +244,26 @@ What the payload can and cannot do:
 - **閉じる restores** the patched `XMLHttpRequest`/`fetch` prototypes and removes
   the panel.
 
+### Audit round, before the first customer run
+
+A deliberate hunt for ways this could damage a live tenant. Eight things were
+found and fixed; each has a test named after the failure, not the fix.
+
+| found | why it could have hurt |
+|---|---|
+| The exclusive check read an empty or unexpected response as "nothing changed" | `(chk \|\| []).filter(...)` on `null` is `[]`, so a gateway hiccup would have looked like a clean bill of health and let a write replay over someone else's edit. It now requires a row per sheet asked about and refuses otherwise. |
+| The check ran once per run, not per write | A 130-item 1件ずつ run takes minutes, and each PUT replays whole layout maps. An edit made by anyone else during the run would have been silently discarded by the next write. The check moved inside `writeBatch`, so the window is one transaction. |
+| A re-capture left the old plan applicable | The hooks stay installed; any later 保存 — the operator's, or on another sheet — replaced the template while a plan built against the old one was still loaded. Keys, itemOrders and positions are all derived from that template. A capture now discards the plan and the cached reads, and a plan carries the capture id it was built against, checked again inside `writeBatch`. |
+| The page check only matched `sheet_<digits>` | Navigating to a standard sheet (`customer`, `businessplan`) passed the guard. It matches the `item-edit` path segment now. |
+| A template with no layout map for the sheet | `layoutItemDefs()` falls back to a fresh `{}`; writing into that throwaway would have created every field with no layout entry — present in the data, invisible on screen. `buildPayload` refuses instead. |
+| Nothing bounded a hung request | The run would sit with its buttons disabled and a transaction open. 120 s timeout, treated as a failure like any other — never a retry, and it stops before `doCommit`. |
+| 1件ずつ kept going after a concurrent edit | Every remaining item would hit the same wall. It stops, and reports the remainder as not attempted. Transactions are also paced 150 ms apart rather than fired back to back at a production gateway. |
+| `restore()` overwrote the hooks unconditionally | If the page or another tool wrapped `fetch`/`XMLHttpRequest` after this one, 閉じる would have removed their wrapper and broken it. It puts back only what is still its own. |
+
+Also fixed, not a safety issue: `relationDonors()` re-walked the whole design
+once per field — 178 ms on the real 185-field sheet, and quadratic in sheet size.
+Memoised.
+
 Residual risks the operator must be told about:
 
 - The template capture presses 保存, which commits anything already pending on
@@ -257,7 +277,13 @@ Residual risks the operator must be told about:
   layout property block — an untested path. The dry run warns and it should be
   trialled one item at a time.
 - An open transaction cannot be rolled back (no such endpoint). The window
-  between `doBegin` and `doCommit` is a single request.
+  between `doBegin` and `doCommit` is a single request. A failure there leaves
+  nothing committed but does leave a transaction the server has to expire.
+- The `esm-layout-before-*.json` snapshot lands in the Downloads folder of the
+  machine the browser is running on — the customer's, over AdminOne. It holds
+  that sheet's full definition. Keep it until the run is verified, then delete it.
+- A 1件ずつ run is six requests per field. 130 fields is roughly 780 requests and
+  ~20 MB over several minutes; the confirm dialog gives the estimate.
 
 ## Gateway quirks learned the hard way
 

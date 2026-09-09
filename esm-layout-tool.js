@@ -101,7 +101,9 @@
     targetDesign: {}, // sheetName -> GET /design/{sheetName}   (link targets)
     targetLayout: {}, // sheetName -> POST /layout/tenant/search (link targets)
     targetBaseline: {}, // sheetName -> updatedAt when the target was read
-    targetMaxOrder: {} // sheetName -> highest reverse itemOrder written this run
+    targetMaxOrder: {}, // sheetName -> highest reverse itemOrder written this run
+    captureId: 0,     // bumped whenever a new save template is captured
+    planStamp: -1     // the captureId the current plan was built against
   };
 
   const log = (msg, cls) => {
@@ -129,6 +131,12 @@
       // come first, which would point every later write at the wrong sheet.
       const um = String(url).match(/\/design\/layout\/([^/?#]+)\/part/);
       S.sheetName = (um && decodeURIComponent(um[1])) || Object.keys(body.tenantLayout || {})[0] || null;
+      // Any plan was computed against the template we just replaced: its keys,
+      // itemOrders and layout positions are all derived from it. Throw it away
+      // rather than let it be applied to a different snapshot — or another sheet.
+      S.captureId++;
+      if (S.plan) { S.plan = null; log('保存リクエストを取得し直したので、前の計画は破棄しました。', 'err'); }
+      S.design = null; S.targetDesign = {}; S.targetLayout = {}; S.targetBaseline = {}; S.targetMaxOrder = {};
       log('保存リクエストを取得しました。sheet=' + S.sheetName, 'ok');
       log('  通信方式: ' + (S.profile ? ('withCredentials=' + S.profile.withCredentials +
           ' / headers=' + Object.keys(S.profile.headers).filter((k) => !SKIP_HEADERS.test(k)).join(',')) : '不明'));
@@ -168,24 +176,27 @@
     S.profile = { headers: headers || {}, withCredentials: !!withCredentials };
   }
 
-  XMLHttpRequest.prototype.open = function (m, u) {
+  const hookedOpen = function (m, u) {
     if (isApiUrl(u)) { this.__eltM = m; this.__eltU = u; this.__eltH = {}; }
     return oOpen.apply(this, arguments);
   };
-  XMLHttpRequest.prototype.setRequestHeader = function (k, v) {
+  const hookedSetH = function (k, v) {
     try { if (this.__eltH) this.__eltH[k] = v; } catch (e) {}
     return oSetH.apply(this, arguments);
   };
-  XMLHttpRequest.prototype.send = function (b) {
+  const hookedSend = function (b) {
     try {
       if (this.__eltU) noteProfile(this.__eltH, this.withCredentials);
       if (String(this.__eltM).toUpperCase() === 'PUT' && isSaveUrl(this.__eltU) && typeof b === 'string') capture(this.__eltU, this.__eltH, b);
     } catch (e) {}
     return oSend.apply(this, arguments);
   };
+  XMLHttpRequest.prototype.open = hookedOpen;
+  XMLHttpRequest.prototype.setRequestHeader = hookedSetH;
+  XMLHttpRequest.prototype.send = hookedSend;
 
   const oFetch = window.fetch;
-  window.fetch = function (input, init) {
+  const hookedFetch = function (input, init) {
     try {
       const url = typeof input === 'string' ? input : (input && input.url);
       const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
@@ -201,6 +212,7 @@
     } catch (e) {}
     return oFetch.apply(this === undefined || this === null ? window : this, arguments);
   };
+  window.fetch = hookedFetch;
 
   // Prefer the page footer's primary button, so an open modal's own 保存 is
   // never the one we press.
@@ -289,6 +301,11 @@
         }
       };
       x.onerror = () => reject(new Error('NETWORK'));
+      // A hung gateway would otherwise leave the run stuck with the buttons
+      // disabled and a transaction open. Timing out is safe: like any failure,
+      // it stops before doCommit, and nothing is ever re-sent.
+      try { x.timeout = 120000; } catch (e) {}
+      x.ontimeout = () => reject(new Error('TIMEOUT'));
       oSend.call(x, body == null ? null : body);
     });
   }
@@ -302,9 +319,9 @@
     try {
       return await rawRequest(method, url, body);
     } catch (e) {
-      throw new Error(e.message === 'NETWORK'
-        ? 'ネットワーク/CORS エラー: ' + method + ' ' + url + ' に到達できません'
-        : e.message);
+      if (e.message === 'NETWORK') throw new Error('ネットワーク/CORS エラー: ' + method + ' ' + url + ' に到達できません');
+      if (e.message === 'TIMEOUT') throw new Error('タイムアウト(120秒): ' + method + ' ' + url + ' — 再送はしません。画面を再読み込みして結果を確認してください');
+      throw e;
     }
   }
 
@@ -370,14 +387,23 @@
       rows.push({ sheetName: sn, localUpdatedAt: S.targetBaseline[sn] });
     });
     const chk = await req('/sheetdef/state/isUpdated', { method: 'POST', body: JSON.stringify(rows) });
-    const hit = (chk || []).filter((r) => r && r.isUpdated).map((r) => r.sheetName);
-    if (hit.length) throw new Error('基準時刻以降に他の人が ' + hit.join(', ') + ' を更新しています');
+    // Fail closed. An empty or unexpected response used to read as "nothing has
+    // changed", which is the one answer this check must never invent.
+    const seen = {};
+    (Array.isArray(chk) ? chk : []).forEach((r) => { if (r && r.sheetName) seen[r.sheetName] = r; });
+    const missing = rows.filter((r) => !(r.sheetName in seen)).map((r) => r.sheetName);
+    if (missing.length) throw new Error('排他チェックの応答に ' + missing.join(', ') + ' がありません（中止します）');
+    const hit = rows.filter((r) => seen[r.sheetName].isUpdated).map((r) => r.sheetName);
+    if (hit.length) {
+      const e = new Error('基準時刻以降に他の人が ' + hit.join(', ') + ' を更新しています');
+      e.concurrent = true;
+      throw e;
+    }
     return rows.map((r) => r.sheetName);
   }
 
-  const planTargets = () => Object.keys((S.plan && S.plan.targets) || {});
-
   function existingDefs() {
+    if (S.__defsFor === S.design && S.__defs) return S.__defs;
     // The design response nests itemDefs; take the largest map containing type_ keys.
     let best = {};
     const walk = (o) => {
@@ -389,6 +415,9 @@
       Object.values(o).forEach((v) => { if (v && typeof v === 'object') walk(v); });
     };
     walk(S.design || {});
+    // Walking a 1 MB design took 1 ms, but relationDonors called this once per
+    // item: 178 ms on a real 185-field sheet, and worse on a bigger one.
+    S.__defsFor = S.design; S.__defs = best;
     return best;
   }
 
@@ -619,9 +648,9 @@
   // copies the save request instead of synthesising one. A target this sheet has
   // never linked to therefore needs its first field made by hand.
   function relationDonors() {
-    const out = {};
-    Object.keys(existingDefs()).forEach((k) => {
-      const d = existingDefs()[k];
+    const out = {}, defs = existingDefs();
+    Object.keys(defs).forEach((k) => {
+      const d = defs[k];
       if (!d || d.itemType !== 'SB_RELATION') return;
       const td = d.itemTypeDef || {};
       if (!td.sheetName || out[td.sheetName]) return;
@@ -795,6 +824,7 @@
       const order = placeNext(span);
       add.push(Object.assign({ key, itemOrder: ++maxItemOrder, order, rel }, it, { span }));
     });
+    S.planStamp = S.captureId;
     return { add, skip, targets: alloc };
   }
 
@@ -955,6 +985,13 @@
     const body = JSON.parse(JSON.stringify(S.tpl.body));
     const sd = body.sheetDefs[0];
     sd.itemDefs = {};                       // /part is a partial update: send only the new defs
+    // layoutItemDefs/layoutPlacement fall back to a fresh {} when the template
+    // has no map for this sheet. Writing into that throwaway would send items
+    // with no layout entry — created, unplaced, and invisible on the screen.
+    const root = layoutRoot(body);
+    if (!root.itemDefs || !(root.sheetTypeDefs || [])[0] || !root.sheetTypeDefs[0].itemDefs) {
+      throw new Error('取得した保存リクエストに ' + S.sheetName + ' のレイアウト情報がありません。画面を再読み込みしてやり直してください。');
+    }
     const lDefs = layoutItemDefs(body);
     const place = layoutPlacement(body);
     adds.forEach((a) => {
@@ -1036,7 +1073,17 @@
 
   // One transaction, one PUT. Returns nothing on success, throws on failure.
   async function writeBatch(adds) {
+    if (S.planStamp !== S.captureId) {
+      throw new Error('保存リクエストを取得し直したため、計画が古くなっています。ドライランからやり直してください。');
+    }
+    if (!sheetMatchesPage()) {
+      throw new Error('画面のシートが変わっています。画面を再読み込みしてやり直してください。');
+    }
     const payload = buildPayload(adds);
+    // Checked per transaction, not once per run. A 1件ずつ run of 130 links takes
+    // minutes, and our PUT replays whole layout maps: someone else's edit made
+    // during the run would be silently thrown away by the next write.
+    await checkConcurrentEdits(Object.keys(payload.tenantLayout || {}).filter((sn) => sn !== S.sheetName));
     await req('/transaction/doBegin', { method: 'POST' });
     try {
       await request('PUT', S.tpl.url, JSON.stringify(payload));
@@ -1071,18 +1118,13 @@
   // accepts. Slower, but a rejected item no longer takes the whole batch with it.
   async function applyOneByOne() {
     if (!S.plan || !S.plan.add.length) { log('追加対象がありません。', 'err'); return; }
-    if (!preflight()) return;
+    if (!preflight() || !planIsFresh()) return;
     const adds = S.plan.add.slice();
-    if (!confirm(adds.length + ' 件を1件ずつ追加します。\n失敗した項目はスキップして続行します。' +
+    // Six requests and a short pause per item: a long run should not look hung.
+    const mins = Math.max(1, Math.ceil(adds.length * 2.5 / 60));
+    if (!confirm(adds.length + ' 件を1件ずつ追加します。\n失敗した項目はスキップして続行します。\n' +
+                 '目安の所要時間: ' + mins + ' 分程度（1件あたり数秒）。途中で画面を閉じないでください。' +
                  relationWarning(adds) + '\n\nよろしいですか？')) return;
-
-    try {
-      const names = await checkConcurrentEdits(planTargets());
-      log('排他チェック OK (' + names.join(', ') + ')', 'ok');
-    } catch (e) {
-      log('中止: ' + e.message, 'err');
-      return;
-    }
 
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     download('esm-layout-before-' + S.sheetName + '-' + stamp + '.json', { capturedSave: S.tpl.body, design: S.design });
@@ -1098,7 +1140,17 @@
       } catch (e) {
         ng.push({ item: a, error: e.message });
         log('   NG ' + e.message, 'err');
+        // Someone else is editing, or the plan no longer matches the screen.
+        // Every remaining item would hit the same wall; stop instead of hammering.
+        if (e.concurrent || /計画が古く|画面のシートが変わって/.test(e.message)) {
+          log('残り ' + (adds.length - i - 1) + ' 件は実行しません。', 'err');
+          adds.slice(i + 1).forEach((r) => ng.push({ item: r, error: '前の失敗により中止' }));
+          break;
+        }
       }
+      // A short pause between transactions: this is a customer's production
+      // gateway, and a 130-item run is 500+ requests back to back.
+      if (i + 1 < adds.length) await new Promise((r) => setTimeout(r, 150));
     }
     S.plan = { add: [], skip: S.plan.skip };
     const lines = ['=== ' + VERSION + ' 1件ずつ実行 結果 ===', 'sheet: ' + S.sheetName, ''];
@@ -1111,16 +1163,18 @@
       log('追加済みの項目は自動でスキップされ、失敗した分だけが再試行されます。', 'ok');
     }
     log(t);
-    try { navigator.clipboard.writeText(t); log('(結果をクリップボードにコピーしました)', 'ok'); } catch (e) {}
+    try { Promise.resolve(navigator.clipboard.writeText(t)).then(() => log('(結果をクリップボードにコピーしました)', 'ok'), () => {}); } catch (e) {}
     loadDesign().catch(() => {});
     refresh();
   }
 
   // The sheet id in the URL must still match the captured template.
+  // The item-edit URL is /esm/{sheetName}/item-edit. Matching only sheet_<digits>
+  // let a navigation to a standard sheet (customer, businessplan…) slip through.
   function sheetMatchesPage() {
-    const m = String(location.pathname).match(/\/(sheet_[0-9]+)\//);
+    const m = String(location.pathname).match(/\/([^/]+)\/item-edit(\/|$)/);
     if (!m || !S.sheetName) return true;          // unknown URL shape: don't block
-    return m[1] === S.sheetName;
+    return decodeURIComponent(m[1]) === S.sheetName;
   }
 
   function preflight() {
@@ -1134,11 +1188,21 @@
     return true;
   }
 
+  // The write path checks this again inside writeBatch; this is only so the
+  // operator is told before the confirm dialog rather than after it.
+  function planIsFresh() {
+    if (S.plan && S.planStamp !== S.captureId) {
+      log('中止: 保存リクエストを取得し直したため、計画が古くなっています。ドライランからやり直してください。', 'err');
+      return false;
+    }
+    return true;
+  }
+
   async function apply() {
     if (!S.plan || !S.plan.add.length) { log('追加対象がありません。', 'err'); return; }
     // itemOrder allocation and the duplicate check both need the real item list.
     // Without it we would restart numbering from 1 and collide with existing items.
-    if (!preflight()) return;
+    if (!preflight() || !planIsFresh()) return;
     const n = S.plan.add.length;
     if (n > 50 && !confirm(n + ' 件を1回のリクエストで追加しようとしています。\n' +
         '件数が多い場合は分けて実行することをおすすめします。\n\nこのまま続行しますか？')) return;
@@ -1149,16 +1213,6 @@
     download('esm-layout-before-' + S.sheetName + '-' + stamp + '.json', { capturedSave: S.tpl.body, design: S.design });
     log('現在の状態を保存しました (ダウンロードフォルダ)。', 'ok');
 
-    try {
-      const names = await checkConcurrentEdits(planTargets());
-      log('排他チェック OK (' + names.join(', ') + ' / 基準時刻 ' + S.baselineUpdatedAt + ')', 'ok');
-    } catch (e) {
-      // Not skippable: our PUT replays the entire layout, so writing without
-      // this check risks silently discarding someone else's concurrent edit.
-      log('中止: 排他チェックに失敗しました: ' + e.message, 'err');
-      log('画面を再読み込みしてやり直してください。解消しない場合は担当者に連絡してください。', 'err');
-      return;
-    }
 
     let began = false;
     try {
@@ -1343,10 +1397,12 @@
     };
   })();
   function restore() {
-    try { XMLHttpRequest.prototype.open = oOpen; } catch (e) {}
-    try { XMLHttpRequest.prototype.send = oSend; } catch (e) {}
-    try { XMLHttpRequest.prototype.setRequestHeader = oSetH; } catch (e) {}
-    try { window.fetch = oFetch; } catch (e) {}
+    // Put back only what is still ours. If the page (or another tool) wrapped
+    // these after we did, overwriting would remove their wrapper and break it.
+    try { if (XMLHttpRequest.prototype.open === hookedOpen) XMLHttpRequest.prototype.open = oOpen; } catch (e) {}
+    try { if (XMLHttpRequest.prototype.send === hookedSend) XMLHttpRequest.prototype.send = oSend; } catch (e) {}
+    try { if (XMLHttpRequest.prototype.setRequestHeader === hookedSetH) XMLHttpRequest.prototype.setRequestHeader = oSetH; } catch (e) {}
+    try { if (window.fetch === hookedFetch) window.fetch = oFetch; } catch (e) {}
     try { panel.remove(); style.remove(); } catch (e) {}
     try { delete window.__esmLayoutTool; delete window.__eltPayload; } catch (e) {}
     console.log('[esm-layout-tool] 終了しました（フックを解除しました）。');
@@ -1510,7 +1566,7 @@
   function refresh() {
     const ok = !!S.tpl;
     $('elt-status').innerHTML = ok
-      ? '<span class="elt-ok">準備完了: ' + S.sheetName + '</span>' +
+      ? '<span class="elt-ok">準備完了: ' + esc(S.sheetName) + '</span>' +
         (S.design ? ' <span style="color:#8b95a7">既存 ' + Object.keys(existingDefs()).length + ' 項目</span>'
                   : ' <span class="elt-warn">(項目一覧は未取得)</span>')
       : '状態: 保存リクエスト未取得 —「実行」で自動取得します';

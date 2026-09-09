@@ -1114,3 +1114,169 @@ console.log('\n=== the panel can be moved ===');
     assert.strictEqual(localStorage.getItem('elt-pos'),null);
   });
 }
+
+console.log('\n=== safety: the exclusive check cannot pass by accident ===');
+{
+  const X=(global.__xhr=global.__xhr||{sends:[]});
+  const arm=(resp)=>{ X.sends=[]; X.mode='ok'; X.response=resp; };
+  const disarm=()=>{ delete X.response; X.mode='error'; };
+  const base=()=>{
+    S.sheetName='sheet_A'; S.baselineUpdatedAt='2026/09/09 09:00:00'; S.targetBaseline={};
+    S.profile={headers:{authorization:'Bearer x'},withCredentials:false};
+    S.tpl={url:'https://gateway.example/sheet-fs/v1/design/layout/sheet_A/part',headers:{},body:{}};
+  };
+  const mustReject=(resp,what)=>{
+    base(); arm(resp);
+    return T.checkConcurrentEdits([]).then(
+      ()=>{disarm();throw new Error('the check passed on '+what);},
+      (e)=>{disarm();assert.ok(/応答に|基準時刻/.test(e.message),e.message);});
+  };
+  // An empty body used to read as "nothing changed", which is the one answer
+  // this check must never invent for itself.
+  check('an empty response is refused, not read as unchanged', ()=>mustReject('[]','an empty array'));
+  check('a null response is refused', ()=>mustReject('null','null'));
+  check('a response about a different sheet is refused', ()=>
+    mustReject(JSON.stringify([{sheetName:'sheet_ZZZ',isUpdated:false}]),'the wrong sheet'));
+  check('a non-array response is refused', ()=>
+    mustReject(JSON.stringify({sheetName:'sheet_A',isUpdated:false}),'an object'));
+  check('a concurrent edit is tagged so a run can stop on it', ()=>{
+    base(); arm(JSON.stringify([{sheetName:'sheet_A',isUpdated:true}]));
+    return T.checkConcurrentEdits([]).then(
+      ()=>{disarm();throw new Error('a concurrent edit was not caught');},
+      (e)=>{disarm();assert.strictEqual(e.concurrent,true,'the error is not tagged concurrent');});
+  });
+}
+
+console.log('\n=== safety: a stale plan can never be written ===');
+{
+  const src=require('fs').readFileSync(__dirname+'/../esm-layout-tool.js','utf8');
+  check('capturing a new template throws the old plan away', ()=>{
+    S.plan={add:[{}],skip:[]}; S.design={x:1}; S.targetDesign={a:1}; S.targetLayout={a:1};
+    const before=S.captureId;
+    T.captureForTest('https://gw.example/sheet-fs/v1/design/layout/'+SHEET+'/part',{},
+      JSON.stringify({tenantLayout:{[SHEET]:{pc:{sheetDefs:{itemDefs:{}}}}},sheetDefs:[{itemDefs:{}}]}));
+    assert.strictEqual(S.plan,null,'the plan survived a re-capture');
+    assert.strictEqual(S.captureId,before+1,'the capture id did not move');
+    assert.deepStrictEqual(S.targetDesign,{},'link-target reads were kept across a re-capture');
+    assert.strictEqual(S.design,null,'the item list was kept across a re-capture');
+  });
+  check('a plan is stamped with the template it was built against', ()=>{
+    assert.ok(/S\.planStamp = S\.captureId/.test(src),'buildPlan does not stamp the plan');
+    const wb=src.slice(src.indexOf('async function writeBatch'),src.indexOf('doBegin'));
+    assert.ok(/S\.planStamp !== S\.captureId/.test(wb),'writeBatch writes without checking the stamp');
+    assert.ok(/sheetMatchesPage\(\)/.test(wb),'writeBatch writes without rechecking the page');
+    assert.ok(wb.indexOf('checkConcurrentEdits')>=0,'writeBatch writes without an exclusive check');
+  });
+  // The check used to run once per run; a 130-item run takes minutes.
+  check('the exclusive check is inside the transaction, not once per run', ()=>{
+    const calls=src.match(/await checkConcurrentEdits\(/g)||[];
+    assert.strictEqual(calls.length,1,'expected exactly one call site, found '+calls.length);
+    const wb=src.slice(src.indexOf('async function writeBatch'),src.indexOf("req('/transaction/doBegin'"));
+    assert.ok(/checkConcurrentEdits/.test(wb),'the only call site is not inside writeBatch');
+  });
+  check('the page check catches a standard sheet, not only sheet_<digits>', ()=>{
+    const fn=src.slice(src.indexOf('function sheetMatchesPage'),src.indexOf('function preflight'));
+    assert.ok(/item-edit/.test(fn),'the page check does not look at the item-edit path');
+    assert.ok(!/sheet_\[0-9\]\+/.test(fn),'the page check still only matches sheet_<digits>');
+  });
+}
+
+console.log('\n=== safety: a run that goes wrong stops ===');
+{
+  const src=require('fs').readFileSync(__dirname+'/../esm-layout-tool.js','utf8');
+  check('a hung request times out instead of hanging the run', ()=>{
+    assert.ok(/x\.timeout = \d+/.test(src),'no request timeout');
+    assert.ok(/ontimeout/.test(src),'a timeout would never reject');
+    assert.ok(/TIMEOUT/.test(src)&&/再送はしません/.test(src),'a timeout is not reported as a non-retry');
+  });
+  check('a timeout is not a retry', ()=>{
+    const rq=src.slice(src.indexOf('async function request'),src.indexOf('function req('));
+    assert.ok(!/for *\(|while *\(|attempt/i.test(rq),'request() grew a retry loop');
+  });
+  check('1件ずつ stops on a concurrent edit instead of hammering', ()=>{
+    const loop=src.slice(src.indexOf('for (let i = 0; i < adds.length; i++)'),
+                         src.indexOf('S.plan = { add: [], skip: S.plan.skip };'));
+    assert.ok(/e\.concurrent/.test(loop),'a concurrent edit does not stop the loop');
+    assert.ok(/break;/.test(loop),'the loop never breaks');
+    assert.ok(/前の失敗により中止/.test(loop),'the skipped remainder is not reported');
+  });
+  check('transactions are paced apart', ()=>{
+    const loop=src.slice(src.indexOf('for (let i = 0; i < adds.length; i++)'),
+                         src.indexOf('S.plan = { add: [], skip: S.plan.skip };'));
+    assert.ok(/setTimeout\(r, \d+\)/.test(loop),'a 130-item run fires 500+ requests back to back');
+  });
+}
+
+console.log('\n=== safety: the tool leaves the page as it found it ===');
+{
+  const src=require('fs').readFileSync(__dirname+'/../esm-layout-tool.js','utf8');
+  check('restore puts back only the hooks that are still ours', ()=>{
+    const fn=src.slice(src.indexOf('function restore()'),src.indexOf('console.log(\'[esm-layout-tool] 終了'));
+    ['hookedOpen','hookedSend','hookedSetH','hookedFetch'].forEach(h=>{
+      assert.ok(new RegExp('=== '+h).test(fn),'restore overwrites '+h+" without checking it is still ours");
+    });
+  });
+  // The tool's own requests call the saved originals, so they are never seen by
+  // its own hooks: no self-capture, no recursion, no counting its own traffic.
+  check('the tool never sends through its own hooks', ()=>{
+    const rq=src.slice(src.indexOf('function rawRequest'),src.indexOf('// Never retry'));
+    assert.ok(/oOpen\.call\(x/.test(rq),'rawRequest opens through the hooked prototype');
+    assert.ok(/oSend\.call\(x/.test(rq),'rawRequest sends through the hooked prototype');
+    assert.ok(/oSetH\.call\(x/.test(rq),'rawRequest sets headers through the hooked prototype');
+    assert.ok(!/window\.fetch|[^o]fetch\(/.test(rq),'rawRequest uses fetch, which is hooked');
+  });
+  check('a template with no layout map for this sheet is refused', ()=>{
+    S.sheetName=SHEET; S.design={sheetDefs:[{itemDefs:{}}]}; S.targetDesign={}; S.targetLayout={};
+    S.captureId=0; S.perRow=4;
+    S.tpl={url:'https://gw.example/sheet-fs/v1/design/layout/'+SHEET+'/part',headers:{},
+      body:{tenantLayout:{},sheetDefs:[{sheetId:1,sheetName:SHEET,itemDefs:{}}],
+            deleteItemKeys:[],initialSheetAuthority:{},adminSettings:{}}};
+    S.spec=[{line:1,label:'x',type:'テキスト',required:false,options:[],span:1,explanation:''}];
+    S.plan=T.buildPlan();
+    assert.throws(()=>T.buildPayload(),/レイアウト情報がありません/,
+      'items would have been created with no layout entry');
+  });
+  check('a template whose layout grid is missing is refused too', ()=>{
+    S.tpl.body.tenantLayout={[SHEET]:{pc:{sheetDefs:{itemDefs:{},sheetTypeDefs:[]}}}};
+    S.plan=T.buildPlan();
+    assert.throws(()=>T.buildPayload(),/レイアウト情報がありません/);
+  });
+}
+
+console.log('\n=== safety: the tool can only reach five endpoints ===');
+{
+  const src=require('fs').readFileSync(__dirname+'/../esm-layout-tool.js','utf8');
+  check('every request path is one of the five documented ones', ()=>{
+    const paths=(src.match(/req\('\/[^']*'/g)||[]).map(m=>m.slice(5,-1));
+    const allowed=[/^\/design\//,/^\/layout\/tenant\/search$/,/^\/sheetdef\/state\//,
+                   /^\/transaction\/doBegin$/,/^\/transaction\/doCommit$/];
+    paths.forEach(p=>{
+      assert.ok(allowed.some(r=>r.test(p)),'undocumented endpoint: '+p);
+    });
+    assert.ok(paths.length>=5,'only found '+paths.length+' call sites');
+  });
+  check('the only PUT goes to the captured save URL, never a built one', ()=>{
+    const puts=src.match(/request\('PUT'[^)]*\)/g)||[];
+    assert.strictEqual(puts.length,1,'expected one PUT call site, found '+puts.length);
+    assert.ok(/request\('PUT', S\.tpl\.url,/.test(puts[0]),'the PUT target is not the captured URL: '+puts[0]);
+  });
+  check('no host is ever hardcoded', ()=>{
+    const hosts=src.match(/https?:\/\/[a-z0-9.-]+/gi)||[];
+    assert.deepStrictEqual(hosts.filter(h=>!/example|softbrain\.com\/sheet-fs/.test(h)),[],
+      'hardcoded hosts: '+hosts.join(', '));
+    assert.ok(/apiBase\(\) \+ path/.test(src),'the base URL is not derived from the captured request');
+  });
+  check('nothing is ever sent anywhere but the gateway the app itself uses', ()=>{
+    assert.ok(/const apiBase = \(\) => S\.tpl\.url\.split/.test(src),
+      'apiBase no longer derives from the captured save URL');
+  });
+  check('the payload never carries deletions', ()=>{
+    assert.ok(/body\.deleteItemKeys = \[\];/.test(src),'deleteItemKeys is not forced empty');
+    assert.strictEqual((src.match(/deleteItemKeys\s*=/g)||[]).length,1,
+      'deleteItemKeys is assigned in more than one place');
+  });
+  check('doRollback is never called: it does not exist', ()=>{
+    assert.ok(!/doRollback/.test(src.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g,'')),
+      'the tool calls an endpoint that returns 404');
+  });
+}
