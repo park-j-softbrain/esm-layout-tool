@@ -896,3 +896,39 @@ console.log('\n=== an unsaved edit on the screen is called out ===');
     assert.ok(logged.some(t=>/未保存の項目が 1 件/.test(t)),logged.join(' | '));
   });
 }
+
+console.log('\n=== every spec row is accounted for in the dry run ===');
+{
+  check('rejected rows are returned with their line, label and reason', ()=>{
+    const r=T.parseSpec(['契約支店\t紐付け参照\t案件',
+                         '工事担当\t紐付け\t',
+                         '改良の有無\tプルダウン\t\t',
+                         '物件名\tテキスト\t\t'].join('\n'));
+    assert.strictEqual(r.items.length,1,'the good row should survive its neighbours');
+    assert.strictEqual(r.items[0].label,'物件名');
+    assert.deepStrictEqual(r.errorRows.map(e=>[e.line,e.label]),
+      [[1,'契約支店'],[2,'工事担当'],[3,'改良の有無']]);
+    assert.strictEqual(r.errorRows.length,r.errors.length,'errorRows and errors disagree');
+    r.errorRows.forEach(e=>{
+      assert.ok(e.reason,'no reason for '+e.label);
+      assert.ok(r.errors.some(t=>t.indexOf(e.label)>=0),'no sentence for '+e.label);
+    });
+  });
+
+  const src=require('fs').readFileSync(__dirname+'/../esm-layout-tool.js','utf8');
+  check('the dry run table is built from adds, skips and rejects together', ()=>{
+    const dry=src.slice(src.indexOf('async function doDry'),src.indexOf('$(\'elt-dry\')'));
+    assert.ok(/S\.plan\.add\.map/.test(dry)&&/S\.plan\.skip\.map/.test(dry)&&/errRows\.map/.test(dry),
+      'the preview table does not draw all three outcomes');
+    assert.ok(/sort\(/.test(dry),'the table is not put back into spec order');
+    assert.ok(/追加不可/.test(dry),'rejected rows are not labelled in the table');
+  });
+
+  check('a spec with some bad rows still runs the good ones', ()=>{
+    const parse=src.slice(src.indexOf('function doParse'),src.indexOf('$(\'elt-parse\')'));
+    assert.ok(!/r\.errors\.length === 0/.test(parse),
+      'doParse still refuses the whole spec when any single row is bad');
+    assert.ok(/if \(!r\.items\.length\)/.test(parse),'doParse no longer checks for an empty spec');
+    assert.ok(/中止/.test(parse),'doParse can still stop without saying why');
+  });
+}

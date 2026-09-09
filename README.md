@@ -180,7 +180,7 @@ They stay manual until someone captures a HAR of creating one.
 
     node test/run.js
 
-104 checks, no dependencies. The important ones replay real captured saves: the recorded PUT is rolled back
+107 checks, no dependencies. The important ones replay real captured saves: the recorded PUT is rolled back
 to its pre-save state, the tool is asked to recreate the item from a spec row,
 and the generated `itemDefs` entry is compared to what eSM actually sent. Both
 match exactly. Others cover key-index allocation, duplicate skipping, batch
@@ -233,6 +233,10 @@ What the payload can and cannot do:
   SPA navigation with the panel open cannot write one sheet's items into another.
 - **Duplicates are skipped** on exact label match, and near-matches (NFKC,
   whitespace, case) are warned about rather than silently created.
+- **Every row of the spec appears in the dry-run table**, in spec order, marked
+  追加 / スキップ / 追加不可 with the reason. A row that only ever appears in the
+  log reads as a row the tool lost — which is how three refused 紐づけ参照 rows
+  looked in practice. Rows it cannot build no longer block the rest of the spec.
 - **Failures leave nothing committed.** `doCommit` is what persists; a failed
   PUT never reaches it.
 - **A snapshot is downloaded before every write.**

@@ -538,7 +538,13 @@
 
     const optCells = (r) => r.slice(col.options).map((c) => String(c || '').trim()).filter(Boolean);
 
-    const items = [], errors = [], notes = [];
+    const items = [], errors = [], notes = [], errorRows = [];
+    // Errors carry the row they came from as well as the sentence, so the dry
+    // run can show a rejected row in the same table as the accepted ones.
+    const bad = (line, label, type, reason) => {
+      errors.push('行' + line + ': ' + (label ? '「' + label + '」' : '') + reason);
+      errorRows.push({ line: line, label: label || '(名前なし)', type: type || '', reason: reason });
+    };
     let prev = null;
     body.forEach((r, i) => {
       const line = (looksHeader ? i + 2 : i + 1);
@@ -552,14 +558,14 @@
         if (prev && cells.length) { prev.__cells = prev.__cells.concat(cells); return; }
         return;
       }
-      if (!label) { errors.push('行' + line + ': 項目名が空です'); return; }
+      if (!label) { bad(line, '', rawType, '項目名が空です'); return; }
       if (!rawType) { notes.push('行' + line + ': 「' + label + '」は項目タイプが空のため飛ばします'); return; }
       if (SYSTEM_ROW.test(rawType)) { notes.push('行' + line + ': 「' + label + '」はシステム項目のため飛ばします'); return; }
 
-      const bad = unsupportedName(rawType);
-      if (bad) { errors.push('行' + line + ': 「' + label + '」の型 ' + bad + ' はこのツールでは追加できません — ' + UNSUPPORTED[bad] + '。手動で追加してください'); return; }
+      const unsup = unsupportedName(rawType);
+      if (unsup) { bad(line, label, unsup, 'の型 ' + unsup + ' はこのツールでは追加できません — ' + UNSUPPORTED[unsup] + '。手動で追加してください'); return; }
       const type = resolveType(rawType);
-      if (!type) { errors.push('行' + line + ': 型「' + rawType + '」は未対応です'); return; }
+      if (!type) { bad(line, label, rawType, 'の型「' + rawType + '」は未対応です'); return; }
 
       const span = parseInt(String(r[col.span] || '1').trim(), 10);
       const it = {
@@ -593,11 +599,11 @@
       it.options = (opts.length === 1 && /[,、]/.test(opts[0]))
         ? opts[0].split(/[,、]/).map((x) => x.trim()).filter(Boolean)
         : opts;
-      if (isSelect && !it.options.length) errors.push('行' + it.line + ': 「' + it.label + '」は選択肢が必要です（決まっていなければ他の行と同じく「（仮）」と入れてください）');
-      if (TYPES[it.type].relation && !it.target) errors.push('行' + it.line + ': 「' + it.label + '」は紐づけ先レコードの指定が必要です');
+      if (isSelect && !it.options.length) bad(it.line, it.label, it.type, 'は選択肢が必要です（決まっていなければ他の行と同じく「（仮）」と入れてください）');
+      if (TYPES[it.type].relation && !it.target) bad(it.line, it.label, it.type, 'は紐づけ先レコードの指定が必要です');
     });
 
-    return { items: items.filter((it) => !(TYPES[it.type].itemType === 'SELECT' && !it.options.length) && !(TYPES[it.type].relation && !it.target)), errors, notes, col, delim: delim };
+    return { items: items.filter((it) => !(TYPES[it.type].itemType === 'SELECT' && !it.options.length) && !(TYPES[it.type].relation && !it.target)), errors, errorRows, notes, col, delim: delim };
   }
 
   /* ------------------------------------------------------------------ *
@@ -1254,16 +1260,27 @@
     const cn = { label: '項目名', type: '項目タイプ', target: '紐づけ先', options: '選択肢', required: '必須', span: '幅', explanation: '説明' };
     log('形式の判定: ' + dn + ' / ' + Object.keys(cn).filter((k) => r.col[k] !== undefined)
         .map((k) => (r.col[k] + 1) + '列目=' + cn[k]).join(' '));
+    S.parseErrors = r.errorRows || [];
     r.errors.forEach((e) => log(e, 'err'));
     // Anything the spec said that was not turned into a setting is listed rather
     // than dropped, so nothing disappears without the operator seeing it.
     (r.notes || []).forEach((n) => log(n));
     log(r.items.length + ' 行を解析しました。' +
         (r.notes && r.notes.length ? ' (' + r.notes.length + ' 行は対象外/備考)' : '') +
-        (r.errors.length ? ' (' + r.errors.length + ' 行はエラー)' : ''), r.errors.length ? 'err' : 'ok');
+        (r.errors.length ? ' (' + r.errors.length + ' 行は追加できません)' : ''), r.errors.length ? 'err' : 'ok');
+    // A handful of rows the tool cannot build is normal on a real spec — three
+    // 紐づけ参照 and an empty pulldown should not stop the other 186 rows. They
+    // are listed here, shown as 追加不可 in the dry run, and left alone.
+    if (r.errors.length && r.items.length) {
+      log('上の ' + r.errors.length + ' 行はこのまま続行しても追加されません。手動で追加してください。', 'err');
+    }
     try { localStorage.setItem('elt-spec', $('elt-tsv').value); } catch (e) {}
     refresh();
-    return r.items.length > 0 && r.errors.length === 0;
+    if (!r.items.length) {
+      log(r.errors.length ? '中止: 追加できる行がありません。' : '中止: 項目が1行も読み取れませんでした。', 'err');
+      return false;
+    }
+    return true;
   }
   $('elt-parse').onclick = doParse;
 
@@ -1272,10 +1289,28 @@
     const need = specTargets();
     if (need.length) await loadTargets(need);
     S.plan = buildPlan();
-    const rows = S.plan.add.map((a) => `<tr><td>${esc(a.label)}</td><td>${esc(a.type)}${TYPES[a.type].verified ? '' : ' <span class="elt-warn">⚠未検証</span>'}</td><td>${a.required ? '必須' : ''}</td><td style="color:#8b95a7">${esc(a.key.split('.').pop())}</td></tr>`).join('');
-    const skips = S.plan.skip.map((s) => `<tr><td colspan="4" style="color:#8b95a7">スキップ: ${esc(s.label)} (${esc(s.reason)})</td></tr>`).join('');
-    $('elt-preview').innerHTML = `<table><tr><th>ラベル</th><th>型</th><th></th><th>キー</th></tr>${rows}${skips}</table>`;
-    log('ドライラン: 追加 ' + S.plan.add.length + ' 件 / スキップ ' + S.plan.skip.length + ' 件', 'ok');
+    // Every row of the spec appears here, in the order it was written, with what
+    // is going to happen to it. A row that only ever showed up in the log reads
+    // as a row the tool lost.
+    const errRows = S.parseErrors || [];
+    const all = S.plan.add.map((a) => ({ line: a.line, kind: 'add', row: a }))
+      .concat(S.plan.skip.map((k) => ({ line: k.line, kind: 'skip', row: k })))
+      .concat(errRows.map((e) => ({ line: e.line, kind: 'err', row: e })))
+      .sort((x, y) => (x.line || 0) - (y.line || 0));
+    const cells = all.map((e) => {
+      const r = e.row;
+      const type = esc(r.type || '') + (e.kind === 'add' && !TYPES[r.type].verified ? ' <span class="elt-warn">⚠未検証</span>' : '');
+      if (e.kind === 'add') {
+        return `<tr><td>${esc(r.label)}</td><td>${type}</td><td class="elt-ok">追加</td><td style="color:#8b95a7">${esc(r.key.split('.').pop())}</td></tr>`;
+      }
+      const cls = e.kind === 'err' ? 'elt-err' : '';
+      const what = e.kind === 'err' ? '追加不可' : 'スキップ';
+      return `<tr><td style="color:#8b95a7">${esc(r.label)}</td><td style="color:#8b95a7">${type}</td>` +
+             `<td class="${cls}">${what}</td><td style="color:#8b95a7">${esc(r.reason)}</td></tr>`;
+    }).join('');
+    $('elt-preview').innerHTML = `<table><tr><th>ラベル</th><th>型</th><th></th><th>キー / 理由</th></tr>${cells}</table>`;
+    log('ドライラン: 追加 ' + S.plan.add.length + ' 件 / スキップ ' + S.plan.skip.length +
+        ' 件 / 追加不可 ' + errRows.length + ' 件', 'ok');
     const unver = S.plan.add.filter((a) => !TYPES[a.type].verified);
     if (unver.length) log('⚠ 未検証の型が ' + unver.length + ' 件あります。まず1件だけで試してください。', 'err');
     // No existing field of this type on the sheet means we must invent the
