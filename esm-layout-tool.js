@@ -1203,7 +1203,10 @@
   #elt-panel{position:fixed;top:8px;right:8px;width:440px;max-height:94vh;z-index:2147483647;
     background:#1e2430;color:#e6edf3;font:12px/1.5 -apple-system,"Segoe UI",Meiryo,sans-serif;
     border:1px solid #3d4757;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.5);display:flex;flex-direction:column}
-  #elt-panel header{padding:8px 10px;background:#2a3242;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center}
+  #elt-panel header{padding:8px 10px;background:#2a3242;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center;
+    cursor:move;user-select:none}
+  #elt-panel.elt-dragging{opacity:.85}
+  #elt-panel.elt-dragging .body{pointer-events:none}
   #elt-panel header b{font-size:12px}
   #elt-panel .body{padding:10px;overflow:auto}
   #elt-panel textarea{width:100%;height:120px;box-sizing:border-box;background:#141a24;color:#e6edf3;
@@ -1226,7 +1229,7 @@
   const panel = document.createElement('div');
   panel.id = 'elt-panel';
   panel.innerHTML = `
-    <header><b>${VERSION}</b><button id="elt-close" style="background:#40485a;margin:0">閉じる</button></header>
+    <header title="ドラッグで移動できます"><b>${VERSION}</b><span style="flex:1"></span><button id="elt-close" style="background:#40485a;margin:0">閉じる</button></header>
     <div class="body">
       <div style="color:#8b95a7;margin-bottom:4px">
         Excel の見出し行ごとコピーして貼り付けてください。<br>
@@ -1243,6 +1246,9 @@
           <option value="4" selected>4（標準）</option>
         </select>
         <span id="elt-perrow-note"></span>
+        <div style="margin-top:2px;font-size:11px">
+          eSM の項目編集画面は 1行 = 4マス（項目の幅は 25% 刻み）が上限のため、5以上は選べません。
+        </div>
       </div>
       <div class="elt-runrow">
         <button id="elt-run">一括で実行</button>
@@ -1271,6 +1277,71 @@
   document.body.appendChild(panel);
 
   const $ = (id) => document.getElementById(id);
+
+  // Keep the whole panel on screen. Pulled out of the drag handler because this
+  // is the part with the edge cases: a window narrower than the panel, a saved
+  // position from a wider monitor, a drag past the top or left edge.
+  function clampPos(x, y, w, h, vw, vh) {
+    const maxX = Math.max(0, vw - w);
+    const maxY = Math.max(0, vh - h);
+    const fix = (v, max) => (isFinite(v) ? Math.min(Math.max(0, v), max) : 0);
+    return [fix(x, maxX), fix(y, maxY)];
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Drag the panel by its header. It starts top-right, which sits over the
+   * item palette on some screens.
+   * ------------------------------------------------------------------ */
+  (function makeDraggable() {
+    const header = panel.querySelector('header');
+    if (!header) return;
+    const moveTo = (x, y) => {
+      const [cx, cy] = clampPos(x, y, panel.offsetWidth || 440, panel.offsetHeight || 200,
+                                window.innerWidth || 1280, window.innerHeight || 800);
+      panel.style.left = cx + 'px';
+      panel.style.top = cy + 'px';
+      panel.style.right = 'auto';
+      return [cx, cy];
+    };
+    let dragging = false, offX = 0, offY = 0;
+
+    header.addEventListener('mousedown', (e) => {
+      if (e.button !== 0 || (e.target && e.target.id === 'elt-close')) return;
+      const r = panel.getBoundingClientRect();
+      offX = e.clientX - r.left; offY = e.clientY - r.top;
+      dragging = true;
+      panel.classList.add('elt-dragging');
+      e.preventDefault();
+    });
+    // Listen on the document, not the header: a fast drag outruns the cursor
+    // and would otherwise drop the panel the moment it left the header.
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      moveTo(e.clientX - offX, e.clientY - offY);
+      e.preventDefault();
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      panel.classList.remove('elt-dragging');
+      const r = panel.getBoundingClientRect();
+      try { localStorage.setItem('elt-pos', JSON.stringify({ x: r.left, y: r.top })); } catch (e) {}
+    });
+    window.addEventListener('resize', () => {
+      if (panel.style.left) moveTo(parseFloat(panel.style.left), parseFloat(panel.style.top));
+    });
+
+    try {
+      const saved = JSON.parse(localStorage.getItem('elt-pos') || 'null');
+      if (saved && isFinite(saved.x) && isFinite(saved.y)) moveTo(saved.x, saved.y);
+    } catch (e) {}
+
+    // 位置リセット, for when the panel is remembered somewhere unreachable.
+    S.resetPosition = () => {
+      panel.style.left = 'auto'; panel.style.top = '8px'; panel.style.right = '8px';
+      try { localStorage.removeItem('elt-pos'); } catch (e) {}
+    };
+  })();
   function restore() {
     try { XMLHttpRequest.prototype.open = oOpen; } catch (e) {}
     try { XMLHttpRequest.prototype.send = oSend; } catch (e) {}
@@ -1451,7 +1522,7 @@
 
   window.__esmLayoutTool = {
     S, TYPES, show: () => { panel.style.display = 'flex'; }, restore,
-    parseSpec, buildPlan, buildPayload, request, checkConcurrentEdits, relationWarning,
+    parseSpec, buildPlan, buildPayload, request, checkConcurrentEdits, relationWarning, clampPos,
     captureForTest: capture, targetAllocatorForTest: targetAllocator
   };
   try {

@@ -1030,3 +1030,87 @@ console.log('\n=== the per-row control is wired up ===');
     assert.ok(/localStorage\.getItem\('elt-perrow'/.test(src),'the per-row choice is never restored');
   });
 }
+
+console.log('\n=== the panel can be moved ===');
+{
+  const C=T.clampPos;
+  check('a drag inside the viewport is left alone', ()=>{
+    assert.deepStrictEqual(C(300,120,440,300,1280,800),[300,120]);
+  });
+  check('a drag past an edge stops at it, never off screen', ()=>{
+    assert.deepStrictEqual(C(-50,-80,440,300,1280,800),[0,0]);
+    assert.deepStrictEqual(C(9999,9999,440,300,1280,800),[840,500]);
+  });
+  // A position saved on a wide monitor must not put the header off a laptop.
+  check('a position saved on a bigger screen is pulled back into view', ()=>{
+    assert.deepStrictEqual(C(2400,1300,440,300,1280,800),[840,500]);
+  });
+  check('a window smaller than the panel pins it to the corner, not to a negative', ()=>{
+    assert.deepStrictEqual(C(100,100,440,300,320,200),[0,0]);
+  });
+  check('a corrupt saved position falls back to the corner', ()=>{
+    assert.deepStrictEqual(C(NaN,undefined,440,300,1280,800),[0,0]);
+  });
+
+  const panel=document.getElementById('elt-panel')||null;
+  const src=require('fs').readFileSync(__dirname+'/../esm-layout-tool.js','utf8');
+  check('the header is the drag handle and says so', ()=>{
+    assert.ok(/<header title="ドラッグで移動できます"/.test(src),'the header does not advertise the drag');
+    assert.ok(/#elt-panel header\{[^}]*cursor:move/.test(src),'the header does not show a move cursor');
+    assert.ok(/user-select:none/.test(src),'dragging the header will select its text');
+  });
+  check('the 閉じる button inside the header does not start a drag', ()=>{
+    const md=src.slice(src.indexOf("header.addEventListener('mousedown'"),
+                        src.indexOf("document.addEventListener('mousemove'"));
+    assert.ok(/e\.target && e\.target\.id === 'elt-close'/.test(md),'clicking 閉じる would drag the panel');
+    assert.ok(/e\.button !== 0/.test(md),'a right-click would start a drag');
+  });
+  // A fast drag outruns the cursor; listening on the header would drop the panel.
+  check('move and release are tracked on the document, not the header', ()=>{
+    assert.ok(/document\.addEventListener\('mousemove'/.test(src),'mousemove is not on the document');
+    assert.ok(/document\.addEventListener\('mouseup'/.test(src),'mouseup is not on the document');
+  });
+  check('the position is saved on release and restored on load', ()=>{
+    assert.ok(/localStorage\.setItem\('elt-pos'/.test(src),'the position is never saved');
+    assert.ok(/localStorage\.getItem\('elt-pos'/.test(src),'the position is never restored');
+    assert.ok(/S\.resetPosition/.test(src),'no way back if it is remembered off screen');
+  });
+  // The lints above check the wiring is written; this drives it.
+  check('a whole drag moves the panel and remembers where it landed', ()=>{
+    const el=document.getElementById('elt-panel');
+    const header=el.querySelector('header');
+    assert.ok(header,'the shim never found the header, so the drag wiring never ran');
+    localStorage.removeItem('elt-pos');
+    el.style.left=''; el.style.top='';
+    header.fire('mousedown',{clientX:100,clientY:20});
+    assert.ok(el.classList.contains('elt-dragging'),'the drag never started');
+    document.fire('mousemove',{clientX:400,clientY:220});
+    assert.strictEqual(el.style.left,'300px');
+    assert.strictEqual(el.style.top,'200px');
+    assert.strictEqual(el.style.right,'auto','the panel is still pinned to the right edge');
+    document.fire('mouseup',{});
+    assert.ok(!el.classList.contains('elt-dragging'),'the drag never ended');
+    assert.deepStrictEqual(JSON.parse(localStorage.getItem('elt-pos')),{x:300,y:200});
+  });
+  check('a move with no drag in progress does not shift the panel', ()=>{
+    const el=document.getElementById('elt-panel');
+    const at=el.style.left;
+    document.fire('mousemove',{clientX:900,clientY:600});
+    assert.strictEqual(el.style.left,at,'the panel followed the cursor without being grabbed');
+  });
+  check('a drag toward the top-left stops at the corner', ()=>{
+    const el=document.getElementById('elt-panel');
+    const header=el.querySelector('header');
+    header.fire('mousedown',{clientX:400,clientY:220});
+    document.fire('mousemove',{clientX:-500,clientY:-500});
+    assert.strictEqual(el.style.left,'0px');
+    assert.strictEqual(el.style.top,'0px');
+    document.fire('mouseup',{});
+  });
+
+  check('resetPosition puts it back in the corner and forgets the saved spot', ()=>{
+    localStorage.setItem('elt-pos','{"x":900,"y":400}');
+    S.resetPosition();
+    assert.strictEqual(localStorage.getItem('elt-pos'),null);
+  });
+}

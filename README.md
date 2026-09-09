@@ -181,7 +181,7 @@ They stay manual until someone captures a HAR of creating one.
 
     node test/run.js
 
-120 checks, no dependencies. The important ones replay real captured saves: the recorded PUT is rolled back
+133 checks, no dependencies. The important ones replay real captured saves: the recorded PUT is rolled back
 to its pre-save state, the tool is asked to recreate the item from a spec row,
 and the generated `itemDefs` entry is compared to what eSM actually sent. Both
 match exactly. Others cover key-index allocation, duplicate skipping, batch
@@ -288,6 +288,34 @@ The panel's **1行に並べる数** picks how many fields sit side by side: 1, 2
 widens each field to fill the row — 2 per row gives half-width fields — while 3
 leaves the fourth cell empty rather than stretching one field to fill it.
 
+### Why the maximum is 4, and not a per-sheet setting
+
+Asked to raise this to 10, three independent sources say four:
+
+1. **eSM's own stylesheet**, from the item-edit page this tool runs on:
+
+       .basic-item-row      { display: flex; flex-wrap: wrap; }
+       .basic-item-row .width-1 { width:  25% !important; }
+       .basic-item-row .width-2 { width:  50% !important; }
+       .basic-item-row .width-3 { width:  75% !important; }
+       .basic-item-row .width-4 { width: 100% !important; }
+
+   `width-1` … `width-4` are the only ones defined, `displaySpan` selects among
+   them, and the row wraps. A narrowest-possible field is 25% of a row, so a
+   fifth one wraps to the next line no matter what the payload says.
+
+2. **The customer sheet's own layout**, 172 placed fields: no row exceeds four
+   cells, the most items in any row is four, and 35 rows are exactly four wide.
+   `displaySpan` only ever takes the values 1, 2 and 4.
+
+3. **The row phase**: every `displaySpan > 1` field sits at `(order − 3) % 4 == 0`,
+   and the gaps between the nine 見出し are 24, 16, 36, 12, 48, 12, 16, 20 — all
+   multiples of 4, and of nothing larger.
+
+Offering 5–10 would place the fields at consecutive `order` values and eSM would
+render four per row regardless, so the setting would quietly mean nothing. It
+stops at 4 instead.
+
 The appended block always **starts on a fresh row**, so it lines up regardless of
 where the existing layout stopped. 見出し always takes a whole row of its own,
 and a `幅` written in the spec beats the per-row setting for that field.
@@ -295,6 +323,17 @@ and a `幅` written in the spec beats the per-row setting for that field.
 The choice is remembered in `localStorage` between sessions. A test places seven
 fields at every setting and asserts no two ever share a cell and nothing spills
 past its row.
+
+## Moving the panel
+
+Drag it by its header. The position is remembered between sessions and clamped
+back into view on load and on resize, so a spot saved on a wide monitor cannot
+strand the panel off the edge of a laptop. `__esmLayoutTool.S.resetPosition()`
+puts it back in the top-right corner if it ever ends up somewhere unreachable.
+
+Mouse move and release are tracked on the document rather than the header: a
+fast drag outruns the cursor and would otherwise drop the panel the moment the
+pointer left the header. The 閉じる button and right-clicks do not start a drag.
 
 ## Known limits
 
