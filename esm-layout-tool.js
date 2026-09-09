@@ -1164,7 +1164,8 @@
     }
     log(t);
     try { Promise.resolve(navigator.clipboard.writeText(t)).then(() => log('(結果をクリップボードにコピーしました)', 'ok'), () => {}); } catch (e) {}
-    loadDesign().catch(() => {});
+    S.design = null;   // stale until read back; the write path refuses to run without it
+    loadDesign().catch(() => log('項目一覧の再取得に失敗しました。次の実行前に「項目一覧を再取得」を押してください。', 'err'));
     refresh();
   }
 
@@ -1226,6 +1227,9 @@
       $('elt-tsv').value = '';
       try { localStorage.removeItem('elt-spec'); } catch (e) {}
       $('elt-preview').innerHTML = '';
+      // The item list is stale until it is read back: the duplicate check and
+      // itemOrder numbering must wait for it, not run against the old snapshot.
+      S.design = null;
       loadDesign().catch(() => log('項目一覧の再取得に失敗しました。次の実行前に「項目一覧を再取得」を押してください。', 'err'));
       log('続けて次の項目リストを貼り付けて実行できます。', 'ok');
       refresh();
@@ -1332,6 +1336,23 @@
 
   const $ = (id) => document.getElementById(id);
 
+  // One button press at a time. 適用 stayed enabled while its own write was in
+  // flight, and confirm() blocks the event loop, so a second click would build
+  // the same plan again and send the same keys in a second transaction. The
+  // other buttons are covered too: 項目一覧を再取得 in the middle of a 1件ずつ run
+  // would replace the baseline the exclusive check compares against.
+  S.busy = false;
+  function oneAtATime(fn) {
+    return function () {
+      if (S.busy) { log('実行中です。終わるまでお待ちください。', 'err'); return; }
+      S.busy = true;
+      refresh();
+      return Promise.resolve().then(() => fn.apply(null, arguments))
+        .catch((e) => log('中止: ' + e.message, 'err'))
+        .then(() => { S.busy = false; refresh(); });
+    };
+  }
+
   // Keep the whole panel on screen. Pulled out of the drag handler because this
   // is the part with the edge cases: a window narrower than the panel, a saved
   // position from a wider monitor, a drag past the top or left edge.
@@ -1408,6 +1429,7 @@
     console.log('[esm-layout-tool] 終了しました（フックを解除しました）。');
   }
   $('elt-close').onclick = () => {
+    if (S.busy) { log('実行中は終了できません。終わるまでお待ちください。', 'err'); return; }
     if (confirm('ツールを終了します。\n（画面への変更は元に戻し、貼り付けた項目リストは残します）')) restore();
     else panel.style.display = 'none';
   };
@@ -1458,7 +1480,7 @@
     }
     return true;
   }
-  $('elt-parse').onclick = doParse;
+  $('elt-parse').onclick = oneAtATime(doParse);
 
   async function doDry() {
     // Link targets have to be read before the plan can allocate reverse keys.
@@ -1529,9 +1551,9 @@
     log('(payload は window.__eltPayload で確認できます)');
     refresh();
   }
-  $('elt-dry').onclick = () => { doDry().catch((e) => log('ドライラン中止: ' + e.message, 'err')); };
-  $('elt-apply').onclick = apply;
-  $('elt-apply-one').onclick = applyOneByOne;
+  $('elt-dry').onclick = oneAtATime(() => doDry().catch((e) => log('ドライラン中止: ' + e.message, 'err')));
+  $('elt-apply').onclick = oneAtATime(apply);
+  $('elt-apply-one').onclick = oneAtATime(applyOneByOne);
 
   async function runAll(mode) {
     const btns = [$('elt-run'), $('elt-run-one')];
@@ -1552,14 +1574,14 @@
       refresh();
     }
   }
-  $('elt-run').onclick = () => runAll('batch');
-  $('elt-run-one').onclick = () => runAll('one');
-  $('elt-capture').onclick = () => autoCapture().catch((e) => log(e.message, 'err'));
-  $('elt-reload').onclick = () => {
+  $('elt-run').onclick = oneAtATime(() => runAll('batch'));
+  $('elt-run-one').onclick = oneAtATime(() => runAll('one'));
+  $('elt-capture').onclick = oneAtATime(() => autoCapture().catch((e) => log(e.message, 'err')));
+  $('elt-reload').onclick = oneAtATime(() => {
     if (!S.tpl) { log('先に保存リクエストを取得してください。', 'err'); return; }
     log('項目一覧を取得しています…');
-    loadDesign().catch((e) => log('項目一覧の取得に失敗: ' + e.message, 'err'));
-  };
+    return loadDesign().catch((e) => log('項目一覧の取得に失敗: ' + e.message, 'err'));
+  });
 
   const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -1570,10 +1592,12 @@
         (S.design ? ' <span style="color:#8b95a7">既存 ' + Object.keys(existingDefs()).length + ' 項目</span>'
                   : ' <span class="elt-warn">(項目一覧は未取得)</span>')
       : '状態: 保存リクエスト未取得 —「実行」で自動取得します';
-    $('elt-dry').disabled = !(ok && S.spec.length);
+    const busy = !!S.busy;
+    $('elt-dry').disabled = busy || !(ok && S.spec.length);
     const canWrite = !!(ok && S.design && S.plan && S.plan.add.length);
-    $('elt-apply').disabled = !canWrite;
-    $('elt-apply-one').disabled = !canWrite;
+    $('elt-apply').disabled = busy || !canWrite;
+    $('elt-apply-one').disabled = busy || !canWrite;
+    ['elt-run', 'elt-run-one', 'elt-capture', 'elt-parse', 'elt-reload'].forEach((id) => { $(id).disabled = busy; });
   }
 
   window.__esmLayoutTool = {

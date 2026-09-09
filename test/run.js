@@ -422,8 +422,8 @@ console.log('\n=== UI wiring ===');
   });
   check('both run modes are primary buttons wired to the same flow', ()=>{
     assert.ok(/id="elt-run"/.test(src) && /id="elt-run-one"/.test(src),'both primary buttons must exist');
-    assert.ok(/\$\('elt-run'\)\.onclick = \(\) => runAll\('batch'\)/.test(src),'一括 must call runAll(batch)');
-    assert.ok(/\$\('elt-run-one'\)\.onclick = \(\) => runAll\('one'\)/.test(src),'1件ずつ must call runAll(one)');
+    assert.ok(/\$\('elt-run'\)\.onclick = oneAtATime\(\(\) => runAll\('batch'\)\)/.test(src),'一括 must call runAll(batch)');
+    assert.ok(/\$\('elt-run-one'\)\.onclick = oneAtATime\(\(\) => runAll\('one'\)\)/.test(src),'1件ずつ must call runAll(one)');
     assert.ok(/mode === 'one' \? applyOneByOne\(\) : apply\(\)/.test(src),'runAll must branch on mode');
   });
   check('both primary buttons are disabled together while a run is in flight', ()=>{
@@ -1278,5 +1278,63 @@ console.log('\n=== safety: the tool can only reach five endpoints ===');
   check('doRollback is never called: it does not exist', ()=>{
     assert.ok(!/doRollback/.test(src.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g,'')),
       'the tool calls an endpoint that returns 404');
+  });
+}
+
+console.log('\n=== safety: one write at a time ===');
+{
+  const src=require('fs').readFileSync(__dirname+'/../esm-layout-tool.js','utf8');
+  const X=global.__xhr;
+  check('every action button goes through the latch', ()=>{
+    ['elt-run','elt-run-one','elt-capture','elt-parse','elt-dry','elt-apply','elt-apply-one','elt-reload'].forEach(id=>{
+      const re=new RegExp("\\$\\('"+id+"'\\)\\.onclick = oneAtATime\\(");
+      assert.ok(re.test(src),id+' is not wrapped in oneAtATime');
+    });
+  });
+  check('閉じる refuses while a run is in progress', ()=>{
+    assert.ok(/elt-close'\)\.onclick = \(\) => \{\s*if \(S\.busy\)/.test(src),'閉じる does not check S.busy first');
+  });
+  check('a press while busy sends nothing', ()=>{
+    // Earlier async checks are still counting their own sends in X.sends, so
+    // compare before and after rather than resetting it under them.
+    const n=X.sends.length;
+    S.busy=true;
+    const r=document.getElementById('elt-apply').onclick();
+    S.busy=false;
+    assert.strictEqual(r,undefined,'the handler ran anyway');
+    assert.strictEqual(X.sends.length,n,'a request went out while another run was in flight');
+  });
+  // The real sequence: click, confirm, the PUT is in flight, click again.
+  check('a second click on 適用 during the write sends no second PUT', async()=>{
+    // Earlier async checks share the recording XHR and flip its mode as they
+    // finish; this one spans several requests, so let them settle first.
+    await Promise.all(pending.slice());
+    const r=replay('text','double click test\tテキスト');
+    S.profile={headers:{authorization:'Bearer x'},withCredentials:false};
+    S.baselineUpdatedAt='2026/09/09 09:00:00';
+    S.planStamp=S.captureId;
+    X.sends=[]; X.mode='ok'; X.response=JSON.stringify([{sheetName:r.sheetName,isUpdated:false}]);
+    const oldConfirm=global.confirm; global.confirm=()=>true;
+    try{
+      const btn=document.getElementById('elt-apply');
+      const p1=btn.onclick();
+      // Microtasks only: apply() is past its confirm and awaiting the network,
+      // and no timer has fired, so the first PUT is still in flight.
+      for(let i=0;i<20;i++) await Promise.resolve();
+      const p2=btn.onclick();
+      assert.strictEqual(p2,undefined,'the second click was not refused');
+      assert.strictEqual(S.busy,true,'the latch was not held during the write');
+      await p1;
+    } finally { global.confirm=oldConfirm; delete X.response; }
+    const puts=X.sends.filter(s=>s.method==='PUT');
+    assert.strictEqual(puts.length,1,'sent '+puts.length+' PUTs; the same items would exist twice');
+    assert.strictEqual(S.busy,false,'the latch was not released after the run');
+    assert.strictEqual(S.design,null,'the item list was kept after a write; the duplicate check would run against a stale snapshot');
+  });
+  check('after a write the item list must be read back before the next one', ()=>{
+    const ap=src.slice(src.indexOf('async function apply()'),src.indexOf('function report()'));
+    assert.ok(/S\.design = null;\s*\n\s*loadDesign\(\)/.test(ap),'apply() does not clear the item list before re-reading it');
+    const one=src.slice(src.indexOf('async function applyOneByOne'),src.indexOf('function sheetMatchesPage'));
+    assert.ok(/S\.design = null;[^\n]*\n\s*loadDesign\(\)/.test(one),'applyOneByOne() does not clear the item list before re-reading it');
   });
 }

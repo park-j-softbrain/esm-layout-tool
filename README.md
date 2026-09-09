@@ -260,6 +260,12 @@ found and fixed; each has a test named after the failure, not the fix.
 | 1件ずつ kept going after a concurrent edit | Every remaining item would hit the same wall. It stops, and reports the remainder as not attempted. Transactions are also paced 150 ms apart rather than fired back to back at a production gateway. |
 | `restore()` overwrote the hooks unconditionally | If the page or another tool wrapped `fetch`/`XMLHttpRequest` after this one, 閉じる would have removed their wrapper and broken it. It puts back only what is still its own. |
 
+A second pass, one day later, found one more:
+
+| found | why it could have hurt |
+|---|---|
+| Nothing stopped a second write from starting while one was in flight | 適用 stayed enabled during its own write, and `confirm()` blocks the event loop, so a second click built the same plan again and sent the same keys in a second transaction. The 個別操作 buttons were live during a 1件ずつ run too, and 項目一覧を再取得 would have replaced the baseline the exclusive check compares against. Every button now goes through one latch (`S.busy`); 閉じる refuses while it is held. The item list is also emptied after a write until it is read back, so a stale duplicate check fails closed. |
+
 Also fixed, not a safety issue: `relationDonors()` re-walked the whole design
 once per field — 178 ms on the real 185-field sheet, and quadratic in sheet size.
 Memoised.
