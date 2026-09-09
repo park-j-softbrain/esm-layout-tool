@@ -2,6 +2,9 @@
 function el(tag){
   const e={tagName:tag,children:[],style:{},dataset:{},_text:'',
     appendChild(c){this.children.push(c);return c;},remove(){},click(){},
+    // The shim never parses innerHTML, so these find nothing. They exist so the
+    // tool's own lookups run instead of throwing into a catch and hiding a bug.
+    querySelector(){return null;},querySelectorAll(){return [];},
     set innerHTML(v){this._html=v;},get innerHTML(){return this._html||'';},
     set textContent(v){this._text=v;},get textContent(){return this._text;}};
   return e;

@@ -666,13 +666,14 @@ console.log('\n=== the real onboarding spec shape ===');
 
 console.log('\n=== grid placement ===');
 {
-  function place(spec,startOrders){
+  function place(spec,startOrders,perRow){
     const lay={},pl={};
     (startOrders||[[3,1],[4,1]]).forEach(([o,s],i)=>{
       const k='appextender.'+SHEET+'.type_text'+(i+1);
       lay[k]={label:{readOnly:false,hideProperty:false}}; pl[k]={order:o,displaySpan:s};
     });
     S.sheetName=SHEET; S.design={sheetDefs:[{itemDefs:{}}]}; S.targetDesign={}; S.targetLayout={};
+    S.perRow=perRow||4;
     S.tpl={url:'https://gw.example/sheet-fs/v1/design/layout/'+SHEET+'/part',headers:{},
       body:{tenantLayout:{[SHEET]:{pc:{sheetDefs:{itemDefs:lay,sheetTypeDefs:[{itemDefs:pl}]}}}},
             sheetDefs:[{sheetId:1,sheetName:SHEET,itemDefs:{}}],deleteItemKeys:[],
@@ -680,28 +681,86 @@ console.log('\n=== grid placement ===');
     S.spec=spec; S.plan=T.buildPlan();
     return S.plan.add.map(a=>[a.label,a.order,a.span]);
   }
-  const row=(label,type)=>({line:1,label:label,type:type,required:false,options:type==='プルダウン'?['a']:[],span:1,explanation:''});
+  const row=(label,type,span)=>({line:1,label:label,type:type,required:false,
+    options:type==='プルダウン'?['a']:[],span:span||1,spanExplicit:span!==undefined,explanation:''});
+  const n=(x)=>x.map(g=>g[1]);
+  const four=['a','b','c','d','e','f'].map(l=>row(l,'テキスト'));
 
-  check('plain fields pack four to a row instead of one per row', ()=>{
-    const got=place([row('a','テキスト'),row('b','テキスト'),row('c','テキスト'),row('d','テキスト')]);
-    assert.deepStrictEqual(got.map(g=>g[1]),[5,6,7,8]);
+  // The two existing fields sit at 3 and 4, so the row 3–6 is half used. New
+  // fields start at 7 rather than filling 5 and 6, so the block lines up.
+  check('the appended block starts on a fresh row', ()=>{
+    assert.deepStrictEqual(n(place(four.slice(0,4))),[7,8,9,10]);
+  });
+
+  check('four to a row by default, then the next row', ()=>{
+    const got=place(four);
+    assert.deepStrictEqual(n(got),[7,8,9,10,11,12]);
+    assert.deepStrictEqual(got.map(g=>g[2]),[1,1,1,1,1,1]);
+  });
+
+  check('2 per row widens each field to half the row', ()=>{
+    const got=place(four,null,2);
+    assert.deepStrictEqual(got.map(g=>[g[1],g[2]]),[[7,2],[9,2],[11,2],[13,2],[15,2],[17,2]]);
+  });
+
+  check('1 per row gives every field the full width', ()=>{
+    const got=place(four.slice(0,3),null,1);
+    assert.deepStrictEqual(got.map(g=>[g[1],g[2]]),[[7,4],[11,4],[15,4]]);
+  });
+
+  // 3 does not divide 4, so the fields stay narrow and the 4th cell is left
+  // empty rather than one field being stretched to fill it.
+  check('3 per row leaves the fourth cell empty instead of stretching', ()=>{
+    const got=place(four,null,3);
+    assert.deepStrictEqual(got.map(g=>[g[1],g[2]]),[[7,1],[8,1],[9,1],[11,1],[12,1],[13,1]]);
   });
 
   check('見出し takes the whole row and starts a new one', ()=>{
-    const got=place([row('a','テキスト'),row('見出し1','見出し'),row('b','テキスト')]);
-    assert.deepStrictEqual(got,[['a',5,1],['見出し1',7,4],['b',11,1]]);
+    assert.deepStrictEqual(place([row('a','テキスト'),row('見出し1','見出し'),row('b','テキスト')]),
+      [['a',7,1],['見出し1',11,4],['b',15,1]]);
+  });
+
+  check('見出し at the top of the block does not waste a row', ()=>{
+    assert.deepStrictEqual(place([row('見出し1','見出し'),row('a','テキスト')]),
+      [['見出し1',7,4],['a',11,1]]);
+  });
+
+  check('a 幅 written in the spec beats the per-row setting', ()=>{
+    const got=place([row('wide','テキスト',4),row('a','テキスト'),row('b','テキスト')],null,2);
+    assert.deepStrictEqual(got,[['wide',7,4],['a',11,2],['b',13,2]]);
+  });
+
+  check('an out-of-range per-row count falls back to the grid width', ()=>{
+    assert.deepStrictEqual(n(place(four.slice(0,4),null,0)),[7,8,9,10]);
+    assert.deepStrictEqual(n(place(four.slice(0,4),null,99)),[7,8,9,10]);
+    assert.deepStrictEqual(n(place(four.slice(0,4),null,'x')),[7,8,9,10]);
   });
 
   check('the row boundary is read from the sheet, not assumed', ()=>{
     // a sheet whose grid starts at 0 puts row starts on multiples of 4
-    const got=place([row('見出し1','見出し')],[[0,1],[1,1]]);
-    assert.deepStrictEqual(got,[['見出し1',4,4]]);
+    assert.deepStrictEqual(place([row('見出し1','見出し')],[[0,1],[1,1]]),[['見出し1',4,4]]);
   });
 
   check('an empty layout still places the first 見出し on a row start', ()=>{
     const got=place([row('見出し1','見出し'),row('a','テキスト')],[]);
     assert.strictEqual(got[0][2],4);
     assert.strictEqual(got[1][1],got[0][1]+4);
+  });
+
+  check('no two appended fields ever overlap, at any per-row setting', ()=>{
+    [1,2,3,4].forEach(x=>{
+      const got=place(['a','b','c','d','e','f','g'].map(l=>row(l,'テキスト')),null,x);
+      const cells=new Set();
+      got.forEach(([label,o,sp])=>{
+        for(let i=0;i<sp;i++){
+          assert.ok(!cells.has(o+i),'perRow='+x+': cell '+(o+i)+' used twice, at '+label);
+          cells.add(o+i);
+        }
+      });
+      got.forEach(([label,o,sp])=>{
+        assert.ok(o+sp<=Math.floor((o-3)/4)*4+3+4,'perRow='+x+': '+label+' spills past its row');
+      });
+    });
   });
 }
 
@@ -930,5 +989,44 @@ console.log('\n=== every spec row is accounted for in the dry run ===');
       'doParse still refuses the whole spec when any single row is bad');
     assert.ok(/if \(!r\.items\.length\)/.test(parse),'doParse no longer checks for an empty spec');
     assert.ok(/中止/.test(parse),'doParse can still stop without saying why');
+  });
+}
+
+console.log('\n=== the per-row control is wired up ===');
+{
+  const src=require('fs').readFileSync(__dirname+'/../esm-layout-tool.js','utf8');
+  // The shim does not parse the panel's innerHTML, so the option list is checked
+  // in the markup itself, as the other UI wiring checks are.
+  check('the select offers 1-4 and defaults to 4', ()=>{
+    const sel=src.slice(src.indexOf('<select id="elt-perrow"'),src.indexOf('</select>'));
+    assert.ok(sel,'no per-row control in the panel');
+    const vals=(sel.match(/value="(\d)"/g)||[]).map(m=>m.match(/\d/)[0]);
+    assert.deepStrictEqual(vals,['1','2','3','4']);
+    assert.ok(/value="4" selected/.test(sel),'the default is not 4');
+  });
+  check('every offered value is one the planner accepts', ()=>{
+    const sel=src.slice(src.indexOf('<select id="elt-perrow"'),src.indexOf('</select>'));
+    const vals=(sel.match(/value="(\d)"/g)||[]).map(m=>+m.match(/\d/)[0]);
+    vals.forEach(v=>{
+      assert.ok(/PER_ROW_NOTE = \{[^}]*\b/.test(src)&&new RegExp('\\b'+v+': ').test(src),
+        'no description for 1行に'+v+'項目');
+    });
+  });
+  check('changing it updates the state the planner reads', ()=>{
+    const el=document.getElementById('elt-perrow');
+    el.value='2'; el.onchange();
+    assert.strictEqual(S.perRow,2);
+    el.value='4'; el.onchange();
+    assert.strictEqual(S.perRow,4);
+  });
+  // buildPlan reads S.perRow, so a run that never touched the select must still
+  // pick up a value restored from localStorage.
+  check('the dry run re-reads the control before planning', ()=>{
+    const dry=src.slice(src.indexOf('async function doDry'),src.indexOf('S.plan = buildPlan()'));
+    assert.ok(/readPerRow\(\)/.test(dry),'doDry plans without re-reading the per-row control');
+  });
+  check('the choice is remembered between sessions', ()=>{
+    assert.ok(/localStorage\.setItem\('elt-perrow'/.test(src),'the per-row choice is never saved');
+    assert.ok(/localStorage\.getItem\('elt-perrow'/.test(src),'the per-row choice is never restored');
   });
 }

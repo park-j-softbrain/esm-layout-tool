@@ -97,6 +97,7 @@
     spec: [],         // parsed rows
     plan: null,       // computed additions
     sheetName: null,
+    perRow: 4,        // fields placed side by side before wrapping to a new row
     targetDesign: {}, // sheetName -> GET /design/{sheetName}   (link targets)
     targetLayout: {}, // sheetName -> POST /layout/tenant/search (link targets)
     targetBaseline: {}, // sheetName -> updatedAt when the target was read
@@ -574,6 +575,7 @@
         target: col.target !== undefined ? String(r[col.target] || '').trim() : '',
         options: [],
         span: TYPES[type].fullWidth ? 4 : ([1, 2, 3, 4].indexOf(span) >= 0 ? span : 1),
+        spanExplicit: col.span !== undefined && [1, 2, 3, 4].indexOf(span) >= 0,
         explanation: col.explanation !== undefined ? String(r[col.explanation] || '').trim() : '',
         __cells: cells
       };
@@ -715,8 +717,29 @@
     const orders = Object.values(place).map((p) => (p && typeof p.order === 'number') ? p.order : null).filter((o) => o !== null);
     const GRID = 4;
     const phase = orders.length ? (Math.min.apply(null, orders) % GRID) : (3 % GRID);
-    let cursor = orders.length ? Object.values(place).reduce((n, p) => Math.max(n, p.order + (p.displaySpan || 1)), 0) : phase;
+    const end = orders.length ? Object.values(place).reduce((n, p) => Math.max(n, p.order + (p.displaySpan || 1)), 0) : phase;
     const rowStart = (o) => o + (((phase - o) % GRID) + GRID) % GRID;
+
+    // How many fields to put side by side. The grid is four cells wide, so a
+    // count that divides it evenly widens each field to fill the row; 3 leaves
+    // the fourth cell empty rather than stretching one field.
+    const perRow = Math.min(GRID, Math.max(1, parseInt(S.perRow, 10) || GRID));
+    const autoSpan = (GRID % perRow === 0) ? (GRID / perRow) : 1;
+
+    // The appended block starts on a fresh row, so it lines up regardless of
+    // where the existing layout happened to stop.
+    let rowBase = rowStart(end), used = 0, inRow = 0;
+    const nextRow = () => { rowBase += GRID; used = 0; inRow = 0; };
+    function placeNext(span) {
+      if (span >= GRID) {                       // a full-width field owns its row
+        if (used > 0) nextRow();
+        const o = rowBase; nextRow(); return o;
+      }
+      if (inRow >= perRow || used + span > GRID) nextRow();
+      const o = rowBase + used;
+      used += span; inRow++;
+      return o;
+    }
 
     const nextIndex = (prefix) => maxSuffix(Array.from(usedKeys), prefix) + 1;
     const counters = {};
@@ -767,9 +790,9 @@
       existingLabels.add(it.label);
       planned.add(it.label);
 
-      const span = T.fullWidth ? GRID : (it.span || 1);
-      const order = span > 1 ? rowStart(cursor) : cursor;
-      cursor = order + span;
+      // 幅 written in the spec wins; otherwise the field is sized to fit perRow.
+      const span = T.fullWidth ? GRID : Math.min(GRID, it.spanExplicit ? it.span : autoSpan);
+      const order = placeNext(span);
       add.push(Object.assign({ key, itemOrder: ++maxItemOrder, order, rel }, it, { span }));
     });
     return { add, skip, targets: alloc };
@@ -1211,6 +1234,16 @@
         ※システム項目の行と、No. 列は自動で読み飛ばします。
       </div>
       <textarea id="elt-tsv" placeholder="項目名&#9;項目タイプ&#9;紐づけ先レコード&#9;選択肢&#10;物件名&#9;テキスト&#10;工事担当&#9;紐付け&#9;業者&#10;ステータス&#9;プルダウン&#9;&#9;未対応&#9;対応中&#9;完了"></textarea>
+      <div style="margin:6px 0;color:#8b95a7">
+        1行に並べる数:
+        <select id="elt-perrow" style="background:#1c2333;color:#c9d1d9;border:1px solid #2a3242;border-radius:3px;padding:2px 4px">
+          <option value="1">1（横幅いっぱい）</option>
+          <option value="2">2（半分ずつ）</option>
+          <option value="3">3</option>
+          <option value="4" selected>4（標準）</option>
+        </select>
+        <span id="elt-perrow-note"></span>
+      </div>
       <div class="elt-runrow">
         <button id="elt-run">一括で実行</button>
         <button id="elt-run-one" class="alt">1件ずつ実行</button>
@@ -1252,6 +1285,22 @@
     else panel.style.display = 'none';
   };
 
+  // The layout choice is per operator, not per sheet, so it is remembered the
+  // same way the pasted list is.
+  const PER_ROW_NOTE = { 1: '1項目で1行', 2: '2項目で1行', 3: '3項目で1行（4つ目のマスは空き）', 4: '4項目で1行' };
+  function readPerRow() {
+    const v = parseInt($('elt-perrow').value, 10);
+    S.perRow = (v >= 1 && v <= 4) ? v : 4;
+    $('elt-perrow-note').textContent = '（' + PER_ROW_NOTE[S.perRow] + '・見出しは常に1行）';
+    try { localStorage.setItem('elt-perrow', String(S.perRow)); } catch (e) {}
+  }
+  try {
+    const saved = localStorage.getItem('elt-perrow');
+    if (saved && $('elt-perrow').querySelector('option[value="' + saved + '"]')) $('elt-perrow').value = saved;
+  } catch (e) {}
+  readPerRow();
+  $('elt-perrow').onchange = () => { readPerRow(); if (S.plan) log('1行に並べる数を ' + S.perRow + ' に変更しました。ドライランをやり直してください。'); };
+
   function doParse() {
     const r = parseSpec($('elt-tsv').value);
     S.spec = r.items;
@@ -1286,6 +1335,7 @@
 
   async function doDry() {
     // Link targets have to be read before the plan can allocate reverse keys.
+    readPerRow();
     const need = specTargets();
     if (need.length) await loadTargets(need);
     S.plan = buildPlan();
@@ -1311,6 +1361,9 @@
     $('elt-preview').innerHTML = `<table><tr><th>ラベル</th><th>型</th><th></th><th>キー / 理由</th></tr>${cells}</table>`;
     log('ドライラン: 追加 ' + S.plan.add.length + ' 件 / スキップ ' + S.plan.skip.length +
         ' 件 / 追加不可 ' + errRows.length + ' 件', 'ok');
+    const rowsUsed = S.plan.add.length ? (Math.max.apply(null, S.plan.add.map((a) => a.order + a.span)) -
+                                          Math.min.apply(null, S.plan.add.map((a) => a.order))) / 4 : 0;
+    log('レイアウト: 既存の下に新しい行から、' + PER_ROW_NOTE[S.perRow] + '（約 ' + Math.ceil(rowsUsed) + ' 行）');
     const unver = S.plan.add.filter((a) => !TYPES[a.type].verified);
     if (unver.length) log('⚠ 未検証の型が ' + unver.length + ' 件あります。まず1件だけで試してください。', 'err');
     // No existing field of this type on the sheet means we must invent the

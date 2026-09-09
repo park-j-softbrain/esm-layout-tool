@@ -76,7 +76,8 @@ Assuming a fixed order here is not a hypothetical mistake: it read
 - **`（仮）` is a choice, not a placeholder** — that is what an operator working
   from these sheets actually enters.
 - 必須: `○ / 1 / true / yes / はい`.
-- 幅: 1–4. 見出し always takes the full row.
+- 幅: 1–4 per field. Overrides the panel's per-row setting for that row.
+  見出し always takes the full row.
 
 ### Remarks in the choice columns
 
@@ -180,7 +181,7 @@ They stay manual until someone captures a HAR of creating one.
 
     node test/run.js
 
-107 checks, no dependencies. The important ones replay real captured saves: the recorded PUT is rolled back
+120 checks, no dependencies. The important ones replay real captured saves: the recorded PUT is rolled back
 to its pre-save state, the tool is asked to recreate the item from a spec row,
 and the generated `itemDefs` entry is compared to what eSM actually sent. Both
 match exactly. Others cover key-index allocation, duplicate skipping, batch
@@ -280,6 +281,21 @@ Residual risks the operator must be told about:
   the `/part` endpoint it is a partial update — send only the new definitions.
   The layout maps in `tenantLayout` are the opposite: full read-modify-write.
 
+## Where new fields land
+
+The panel's **1行に並べる数** picks how many fields sit side by side: 1, 2, 3 or
+4 (default). The grid is four cells wide, so a count that divides it evenly
+widens each field to fill the row — 2 per row gives half-width fields — while 3
+leaves the fourth cell empty rather than stretching one field to fill it.
+
+The appended block always **starts on a fresh row**, so it lines up regardless of
+where the existing layout stopped. 見出し always takes a whole row of its own,
+and a `幅` written in the spec beats the per-row setting for that field.
+
+The choice is remembered in `localStorage` between sessions. A test places seven
+fields at every setting and asserts no two ever share a cell and nothing spills
+past its row.
+
 ## Known limits
 
 - **Tabs are not supported.** "Put item B on page C" is the original
@@ -291,8 +307,8 @@ Residual risks the operator must be told about:
   grid: an item occupies `displaySpan` cells, and a full-width one must begin a
   row. On a 172-field customer sheet every `displaySpan > 1` entry sits at
   `(order − 3) % 4 == 0`, and that phase is read from the sheet rather than
-  assumed. New fields pack four to a row after the existing layout, with 見出し
-  taking a whole row of its own; nothing already placed is renumbered, because
+  assumed. New fields pack N to a row after the existing layout (N is a panel
+  setting, see above); nothing already placed is renumbered, because
   inserting mid-layout renumbers everything after it by an amount two samples
   were not enough to pin down. Fields therefore arrive at the bottom in spec
   order; moving them stays manual.
