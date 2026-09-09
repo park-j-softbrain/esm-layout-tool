@@ -116,11 +116,14 @@ Derived from `GET /design/{sheetId}` on a sheet holding one field of every type.
 | メールアドレス | type_email | EMAIL | EmailItemTypeDef | ✅ |
 | 紐づけ項目 | type_suggest | SB_RELATION | SBRelationItemTypeDef | ✅ payload |
 | 見出し | type_title | SECTION | SectionItemTypeDef | inferred |
+| 紐づけ参照 | (no item of its own) | — | — | inferred |
 
 ✅ types were created successfully against a live tenant. 紐づけ項目 is marked
 "payload" because the create request is reproduced byte for byte from a captured
 save (`test/fixtures/relation-create.json`) but the tool has not yet written one
 itself. 見出し's shape is taken from real SECTION fields, never from a create.
+紐づけ参照's shape is taken from the one that already exists on the customer's
+sheet — see below.
 
 Choice options are sent with placeholder codes `-1, -2, -3…` and `order`
 starting at 2, as the UI does.
@@ -167,13 +170,67 @@ Guards specific to this path:
   a 1件ずつ run of 130 links cannot send back a map missing the previous 129.
 - A sheet left over in the captured template is dropped rather than resent.
 
+## 紐づけ参照 is not a field
+
+A 紐づけ参照 shows a column of a **linked** sheet. It has no item of its own on
+this sheet, which is why it took a while to find: on the real customer sheet it
+is the only key in the whole layout that is placed without a property entry.
+
+| map | 紐づけ項目 | 紐づけ参照 |
+|---|---|---|
+| `sheetDefs[0].itemDefs` | a new entry | none — it lives *inside* the link |
+| `tenantLayout.…sheetDefs.itemDefs` (properties) | a new entry | **none** |
+| `tenantLayout.…sheetTypeDefs[0].itemDefs` (placement) | a new entry | a new entry |
+
+It is written as one nested entry in the link's own definition, keyed
+`<link key>@<the column's key on the linked sheet>`:
+
+```
+appextender.sheet_202.type_suggest13@appextender.sheet_200.type_text3
+```
+
+The value is that column's definition copied verbatim from the linked sheet with
+`relationalItemDefPass` emptied — the server fills that back-pointer in, exactly
+as it does for the id column of a new link.
+
+### Which link it hangs on, and why it must be a new one
+
+The spec names the sheet in the 紐づけ先レコード column and the column in 項目名,
+because a 紐づけ参照 displays the linked sheet's own label:
+
+```
+契約支店   紐付け参照   支店＋工事担当
+工事担当   紐付け       支店＋工事担当
+```
+
+**The link has to be one the same list creates.** Adding a reference to a link
+that already exists would mean sending that link's existing definition back to
+the server, and this tool has never written anything but new items — an update
+has never been captured, so its shape is unverified. Refusing keeps every write
+purely additive. The operator is told to put the 紐づけ項目 row in the same list.
+
+Refused, each with the reason on its own row in the dry run: no link to that
+sheet in the list, two links that could be the one meant, no column of that name
+on the linked sheet, and the same column pulled through the same link twice.
+
+In 1件ずつ mode a link and the references hanging off it are written as one
+transaction, because a reference only exists inside its link's definition.
+
+### The one thing still assumed
+
+The column definition is read from the linked sheet's own `GET /design`. Every
+observed nested column carries that sheet's own `sheetName`, `sheetId`,
+`entityName`, `columnName`, `itemOrder` and label, and the two definitions have
+identical key sets, so a verbatim copy is the reading the evidence supports. It
+has not been confirmed against a capture of a 紐づけ参照 being created, so the
+type is marked unverified and the dry run says so. Add one field first.
+
 ### Not supported, by design
 
 | 型 | why |
 |---|---|
 | 演算（文字） | formula lives in `defaultValue.ref` (e.g. `[[…id]&[…memo]&'']`) plus a `reference` array of the items it reads |
 | 演算（数値） | same |
-| 紐づけ参照 | pulls a named field *through* a link; the spec says which target sheet but not which of its fields |
 
 They stay manual until someone captures a HAR of creating one.
 

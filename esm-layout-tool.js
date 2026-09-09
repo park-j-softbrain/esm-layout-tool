@@ -40,7 +40,11 @@
     '住所':              { prefix: 'type_address',           itemType: 'ADDRESS',           def: 'AddressItemTypeDef',          verified: true },
     'メールアドレス':    { prefix: 'type_email',             itemType: 'EMAIL',             def: 'EmailItemTypeDef',            verified: true },
     '見出し':            { prefix: 'type_title',             itemType: 'SECTION',           def: 'SectionItemTypeDef',          verified: false, fullWidth: true },
-    '紐づけ項目':        { prefix: 'type_suggest',           itemType: 'SB_RELATION',       def: 'SBRelationItemTypeDef',       verified: true,  relation: true, emptyValue: [] }
+    '紐づけ項目':        { prefix: 'type_suggest',           itemType: 'SB_RELATION',       def: 'SBRelationItemTypeDef',       verified: true,  relation: true, emptyValue: [] },
+    // A 紐づけ参照 has no item of its own on this sheet. It is a column of the
+    // LINKED sheet, carried through an existing 紐づけ項目, so it is written as a
+    // nested entry inside that link plus a placement — and nothing else.
+    '紐づけ参照':        {                                                                                                       verified: false, reference: true }
   };
   // Aliases so the spec sheet can use ASCII or sloppy variants.
   const ALIAS = {
@@ -55,6 +59,8 @@
     'tel': '電話番号', 'telno': '電話番号', 'address': '住所',
     'email': 'メールアドレス', 'mail': 'メールアドレス',
     'section': '見出し', 'heading': '見出し', 'title': '見出し',
+    '紐付け参照': '紐づけ参照', '紐付参照': '紐づけ参照', '紐づけ先参照': '紐づけ参照',
+    '参照': '紐づけ参照', 'lookup': '紐づけ参照', 'reference': '紐づけ参照',
     '紐付け項目': '紐づけ項目', '紐づけ': '紐づけ項目', '紐付け': '紐づけ項目',
     '関連レコード': '紐づけ項目', 'relation': '紐づけ項目', 'suggest': '紐づけ項目'
   };
@@ -62,13 +68,9 @@
   // other items or sheets that a two-column spec does not carry.
   const UNSUPPORTED = {
     '演算（文字）': '計算式が必要です (defaultValue.ref に式と参照項目を指定)',
-    '演算（数値）': '計算式が必要です (defaultValue.ref に式と参照項目を指定)',
-    '紐づけ参照': '紐づけ先のどの項目を引くかの指定が必要です'
+    '演算（数値）': '計算式が必要です (defaultValue.ref に式と参照項目を指定)'
   };
-  const UNSUP_ALIAS = {
-    '演算(文字)': '演算（文字）', '演算(数値)': '演算（数値）',
-    '紐付け参照': '紐づけ参照', '紐付参照': '紐づけ参照', '紐づけ先参照': '紐づけ参照'
-  };
+  const UNSUP_ALIAS = { '演算(文字)': '演算（文字）', '演算(数値)': '演算（数値）' };
   // Rows describing fields eSM creates itself. The spec sheet lists the whole
   // sheet, built-ins included; those are already there and must not be re-added.
   const SYSTEM_ROW = /^※?\s*システム項目/;
@@ -369,7 +371,7 @@
   function specTargets() {
     const idx = relationIndex(), out = [];
     S.spec.forEach((it) => {
-      if (!TYPES[it.type] || !TYPES[it.type].relation) return;
+      if (!TYPES[it.type] || !(TYPES[it.type].relation || TYPES[it.type].reference)) return;
       const d = idx[norm(it.target)];
       if (d && out.indexOf(d.sheetName) < 0) out.push(d.sheetName);
     });
@@ -536,9 +538,10 @@
       // cost every link row its target.
       const start = Math.max(tc, lc) + 1;
       const taken = {};
+      // Both 紐づけ項目 and 紐づけ参照 name a sheet in the 紐づけ先レコード column.
       const isRel = (raw) => {
         const t = resolveType(raw);
-        return !!((t && TYPES[t].relation) || unsupportedName(raw) === '紐づけ参照');
+        return !!(t && (TYPES[t].relation || TYPES[t].reference));
       };
       const relRows = body.filter((r) => isRel(r[tc]));
       const namedRows = body.filter((r) => !isRel(r[tc]) && String(r[lc] || '').trim());
@@ -632,9 +635,11 @@
         : opts;
       if (isSelect && !it.options.length) bad(it.line, it.label, it.type, 'は選択肢が必要です（決まっていなければ他の行と同じく「（仮）」と入れてください）');
       if (TYPES[it.type].relation && !it.target) bad(it.line, it.label, it.type, 'は紐づけ先レコードの指定が必要です');
+      if (TYPES[it.type].reference && !it.target) bad(it.line, it.label, it.type, 'はどのシートから引くか（紐づけ先レコード）の指定が必要です');
     });
 
-    return { items: items.filter((it) => !(TYPES[it.type].itemType === 'SELECT' && !it.options.length) && !(TYPES[it.type].relation && !it.target)), errors, errorRows, notes, col, delim: delim };
+    const needsTarget = (it) => (TYPES[it.type].relation || TYPES[it.type].reference) && !it.target;
+    return { items: items.filter((it) => !(TYPES[it.type].itemType === 'SELECT' && !it.options.length) && !needsTarget(it)), errors, errorRows, notes, col, delim: delim };
   }
 
   /* ------------------------------------------------------------------ *
@@ -720,6 +725,23 @@
     return { sheetName: sn, used: new Set(keys), next: maxSuffix(keys, 'type_suggest') + 1, itemOrder: order + 1, count: Object.keys(defs).length };
   }
 
+  // The column a 紐づけ参照 pulls through, looked up on the linked sheet by the
+  // name the spec row carries. A 紐づけ参照 shows the linked sheet's own label,
+  // so the spec's 項目名 IS the column's name over there.
+  function targetColumn(sn, label) {
+    const design = S.targetDesign[sn];
+    if (!design) return { missing: true };
+    const all = design.sheetDefs || [];
+    const own = all.filter((sd) => sd && sd.itemDefs && sd.sheetName === sn);
+    const defs = ((own[0] || all.filter((sd) => sd && sd.itemDefs)[0]) || {}).itemDefs || {};
+    const want = norm(label);
+    const hits = Object.keys(defs).filter((k) => norm((defs[k] || {}).labelName) === want);
+    if (!hits.length) return { notFound: true };
+    if (hits.length > 1) return { ambiguous: hits.length };
+    const def = defs[hits[0]];
+    return { key: def.itemId || hits[0], def: def };
+  }
+
   function buildPlan() {
     const defs = existingDefs();
     const layoutDefs = layoutItemDefs(S.tpl.body);
@@ -780,7 +802,27 @@
     // Two rows of the same spec sharing a name is a mistake in the spec, not a
     // field that is already there — the operator has to pick which one they meant.
     const planned = new Set();
+    const pendingRefs = [];
     S.spec.forEach((it) => {
+      // A 紐づけ参照 creates no item of its own: it is a column of the linked
+      // sheet, shown through a 紐づけ項目. Which link it hangs on cannot be known
+      // until every row has been read, so it is resolved in a second pass.
+      if (TYPES[it.type].reference) {
+        const donor = idx[norm(it.target)];
+        if (donor && donor.ambiguous) {
+          skip.push(Object.assign({ reason: '参照元「' + it.target + '」が ' + donor.ambiguous.join(' と ') + ' のどちらか判別できません（シート名で指定してください）' }, it));
+          return;
+        }
+        if (!donor) {
+          skip.push(Object.assign({ reason: '参照元「' + it.target + '」がこのシートの既存の紐づけ項目に見つかりません' }, it));
+          return;
+        }
+        const span = Math.min(GRID, it.spanExplicit ? it.span : autoSpan);
+        const entry = Object.assign({ key: null, rel: null, ref: null, __sheet: donor.sheetName }, it, { span });
+        add.push(entry);
+        pendingRefs.push(entry);
+        return;
+      }
       if (planned.has(it.label)) {
         skip.push(Object.assign({ reason: 'この項目リスト内で名前が重複しています（先に出てきた行だけを追加します）' }, it));
         return;
@@ -821,11 +863,48 @@
 
       // 幅 written in the spec wins; otherwise the field is sized to fit perRow.
       const span = T.fullWidth ? GRID : Math.min(GRID, it.spanExplicit ? it.span : autoSpan);
-      const order = placeNext(span);
-      add.push(Object.assign({ key, itemOrder: ++maxItemOrder, order, rel }, it, { span }));
+      add.push(Object.assign({ key, itemOrder: ++maxItemOrder, rel }, it, { span }));
     });
+
+    // Second pass: hang each 紐づけ参照 on a 紐づけ項目 created by this same run.
+    // Adding one to a link that already exists would mean sending that link's
+    // definition back — the one thing this tool has never done and cannot verify.
+    // So the link has to be one we are creating, which keeps the write additive.
+    const linksBySheet = {};
+    add.forEach((a) => { if (a.rel) (linksBySheet[a.rel.target] = linksBySheet[a.rel.target] || []).push(a); });
+    const refKeys = new Set();
+    pendingRefs.forEach((a) => {
+      const sn = a.__sheet; delete a.__sheet;
+      const drop = (why) => { a.__drop = why; };
+      const cands = linksBySheet[sn] || [];
+      if (!cands.length) {
+        drop('参照元の紐づけ項目が同じ項目リストにありません。' + sn + ' への紐づけ項目の行を同じリストに入れてください（既存の紐づけ項目には追加できません）');
+        return;
+      }
+      if (cands.length > 1) {
+        drop('参照元の紐づけ項目が複数あります（' + cands.map((c) => c.label).join(' / ') + '）。どれを使うか決められません');
+        return;
+      }
+      const col = targetColumn(sn, a.label);
+      if (col.missing) { drop('参照元シート ' + sn + ' の定義を取得できていません'); return; }
+      if (col.notFound) { drop('参照元シート ' + sn + ' に「' + a.label + '」という項目がありません'); return; }
+      if (col.ambiguous) { drop('参照元シート ' + sn + ' に「' + a.label + '」が ' + col.ambiguous + ' 件あり特定できません'); return; }
+      const key = cands[0].key + '@' + col.key;
+      if (refKeys.has(key) || place[key]) { drop('同じ紐づけ項目から「' + a.label + '」を二重に参照しています'); return; }
+      refKeys.add(key);
+      a.ref = { key: key, parentKey: cands[0].key, parentLabel: cands[0].label, sheetName: sn, column: col.key, def: col.def };
+    });
+    const kept = add.filter((a) => {
+      if (!a.__drop) return true;
+      const why = a.__drop; delete a.__drop;
+      skip.push(Object.assign({}, a, { reason: why }));
+      return false;
+    });
+
+    // Placement last, so a row dropped above leaves no hole in the grid.
+    kept.forEach((a) => { a.order = placeNext(a.span); });
     S.planStamp = S.captureId;
-    return { add, skip, targets: alloc };
+    return { add: kept, skip, targets: alloc };
   }
 
   // The link itself. `idDef` is the target sheet's own id definition, copied
@@ -995,9 +1074,27 @@
     const lDefs = layoutItemDefs(body);
     const place = layoutPlacement(body);
     adds.forEach((a) => {
+      if (a.ref) return;                    // no item of its own; handled below
       sd.itemDefs[a.key] = makeItemDef(a);
       lDefs[a.key] = makeLayoutEntry(a).entry;
       place[a.key] = { order: a.order, displaySpan: a.span };
+    });
+    // A 紐づけ参照 is a column of the linked sheet carried through a 紐づけ項目:
+    // one nested entry inside that link's definition, and one placement. It gets
+    // NO entry in the layout property map — on the real sheet it is the only key
+    // that is placed without one.
+    adds.forEach((a) => {
+      if (!a.ref) return;
+      const parent = sd.itemDefs[a.ref.parentKey];
+      if (!parent) throw new Error('内部エラー: 紐づけ参照「' + a.label + '」の参照元が同じ送信に含まれていません');
+      const nested = parent.itemTypeDef.itemDefs;
+      if (nested[a.ref.key]) throw new Error('内部エラー: 紐づけ参照 ' + a.ref.key + ' が重複しています');
+      const col = JSON.parse(JSON.stringify(a.ref.def));
+      // The server fills this in. A newly created nested column carries [] —
+      // the same rule the link's own id column is created under.
+      col.relationalItemDefPass = [];
+      nested[a.ref.key] = col;
+      place[a.ref.key] = { order: a.order, displaySpan: a.span };
     });
     body.deleteItemKeys = [];
 
@@ -1114,6 +1211,20 @@
     await loadState().catch(() => { S.baselineUpdatedAt = null; });
   }
 
+  // A 紐づけ参照 lives inside its 紐づけ項目's definition, so the two must travel
+  // in the same request. 1件ずつ therefore works in small groups: a field on its
+  // own, or a link together with the references hanging off it.
+  function writeGroups(adds) {
+    const groups = [], byKey = {};
+    adds.forEach((a) => { if (!a.ref) { const g = [a]; groups.push(g); byKey[a.key] = g; } });
+    adds.forEach((a) => {
+      if (!a.ref) return;
+      const g = byKey[a.ref.parentKey];
+      if (g) g.push(a); else groups.push([a]);   // orphan: let the payload refuse it
+    });
+    return groups;
+  }
+
   // Applies each item in its own transaction and reports which types the server
   // accepts. Slower, but a rejected item no longer takes the whole batch with it.
   async function applyOneByOne() {
@@ -1130,27 +1241,32 @@
     download('esm-layout-before-' + S.sheetName + '-' + stamp + '.json', { capturedSave: S.tpl.body, design: S.design });
 
     const ok = [], ng = [];
-    for (let i = 0; i < adds.length; i++) {
-      const a = adds[i];
-      log('(' + (i + 1) + '/' + adds.length + ') ' + a.label + ' [' + a.type + '] …');
+    const groups = writeGroups(adds);
+    let done = 0;
+    for (let i = 0; i < groups.length; i++) {
+      const g = groups[i];
+      log('(' + (done + 1) + (g.length > 1 ? '-' + (done + g.length) : '') + '/' + adds.length + ') ' +
+          g.map((a) => a.label).join(' + ') + ' [' + g.map((a) => a.type).join(' + ') + '] …');
       try {
-        await writeBatch([a]);
-        ok.push(a);
+        await writeBatch(g);
+        g.forEach((a) => ok.push(a));
         log('   OK', 'ok');
       } catch (e) {
-        ng.push({ item: a, error: e.message });
+        g.forEach((a) => ng.push({ item: a, error: e.message }));
         log('   NG ' + e.message, 'err');
         // Someone else is editing, or the plan no longer matches the screen.
         // Every remaining item would hit the same wall; stop instead of hammering.
         if (e.concurrent || /計画が古く|画面のシートが変わって/.test(e.message)) {
-          log('残り ' + (adds.length - i - 1) + ' 件は実行しません。', 'err');
-          adds.slice(i + 1).forEach((r) => ng.push({ item: r, error: '前の失敗により中止' }));
+          const rest = groups.slice(i + 1).reduce((n, x) => n.concat(x), []);
+          log('残り ' + rest.length + ' 件は実行しません。', 'err');
+          rest.forEach((r) => ng.push({ item: r, error: '前の失敗により中止' }));
           break;
         }
       }
+      done += g.length;
       // A short pause between transactions: this is a customer's production
       // gateway, and a 130-item run is 500+ requests back to back.
-      if (i + 1 < adds.length) await new Promise((r) => setTimeout(r, 150));
+      if (i + 1 < groups.length) await new Promise((r) => setTimeout(r, 150));
     }
     S.plan = { add: [], skip: S.plan.skip };
     const lines = ['=== ' + VERSION + ' 1件ずつ実行 結果 ===', 'sheet: ' + S.sheetName, ''];
@@ -1246,7 +1362,7 @@
 
   function report() {
     const lines = ['=== ' + VERSION + ' 実行結果 ===', 'sheet: ' + S.sheetName, 'time: ' + new Date().toLocaleString('ja-JP'), ''];
-    S.plan.add.forEach((a) => lines.push('追加  ' + a.label + '  [' + a.type + ']  ' + a.key));
+    S.plan.add.forEach((a) => lines.push('追加  ' + a.label + '  [' + a.type + ']  ' + (a.key || a.ref.key)));
     S.plan.skip.forEach((s) => lines.push('スキップ ' + s.label + '  (' + s.reason + ')'));
     const t = lines.join('\n');
     log('--- 以下をコピーして担当者に送ってください ---');
@@ -1500,7 +1616,8 @@
       const r = e.row;
       const type = esc(r.type || '') + (e.kind === 'add' && !TYPES[r.type].verified ? ' <span class="elt-warn">⚠未検証</span>' : '');
       if (e.kind === 'add') {
-        return `<tr><td>${esc(r.label)}</td><td>${type}</td><td class="elt-ok">追加</td><td style="color:#8b95a7">${esc(r.key.split('.').pop())}</td></tr>`;
+        const key = r.ref ? (r.ref.parentLabel + ' → ' + r.label) : r.key.split('.').pop();
+        return `<tr><td>${esc(r.label)}</td><td>${type}</td><td class="elt-ok">追加</td><td style="color:#8b95a7">${esc(key)}</td></tr>`;
       }
       const cls = e.kind === 'err' ? 'elt-err' : '';
       const what = e.kind === 'err' ? '追加不可' : 'スキップ';
@@ -1518,7 +1635,7 @@
     // No existing field of this type on the sheet means we must invent the
     // layout property block instead of copying one. That path is untested.
     const noDonor = [];
-    S.plan.add.forEach((a) => { if (!donorFor(a.type) && noDonor.indexOf(a.type) < 0) noDonor.push(a.type); });
+    S.plan.add.forEach((a) => { if (!a.ref && !donorFor(a.type) && noDonor.indexOf(a.type) < 0) noDonor.push(a.type); });
     if (noDonor.length) {
       log('⚠ このシートに既存項目が無い型があります: ' + noDonor.join(', '), 'err');
       log('  この型はレイアウト設定を汎用値で作成します（未検証の経路）。まず1件だけ試してください。', 'err');
@@ -1535,6 +1652,16 @@
       });
       log('  逆側の項目は ' + currentSheetLabel() + ' 側の名前に（' + currentSheetLabel() + '）を付けた名前で、非表示で作られます。', 'err');
       log('  これは eSM で紐づけ項目を手で作ったときと同じ動作です。', 'err');
+    }
+    // A 紐づけ参照 adds no field of its own: it shows a column of the linked
+    // sheet through the link named here. Say which link, so the operator can see
+    // it is the one they meant before anything is written.
+    const refs = S.plan.add.filter((a) => a.ref);
+    if (refs.length) {
+      log('── 紐づけ参照 ──', 'ok');
+      refs.forEach((a) => log('  「' + a.label + '」は ' + a.ref.sheetName + ' の項目を「' +
+        a.ref.parentLabel + '」経由で表示します。'));
+      log('  参照項目そのものは作られません。この項目リストで作る紐づけ項目に列として追加されます。');
     }
     // Near-duplicate names: a stray space or full/half-width difference would
     // create a second, almost identical field rather than skipping.

@@ -1,6 +1,7 @@
 /*
- * Regenerates test/fixtures/relation-*.json from a local HAR in which one
- * 紐づけ項目 was added and saved.
+ * Regenerates test/fixtures/relation-create.json and reference-create.json from a
+ * local HAR in which one 紐づけ項目 was added and saved, on a sheet that already
+ * carries one 紐づけ参照.
  *
  *   node test/make-relation-fixture.js /path/to/savelinkeditem.har
  *
@@ -37,6 +38,20 @@ const donorEntry = Object.entries(dDefs).find(([k, v]) =>
 if (!donorEntry) throw new Error('no existing link to ' + target + ' to use as the donor');
 const [donorKey, donorDef] = donorEntry;
 
+// The one 紐づけ参照 already on this sheet: a column of a third sheet, carried
+// through a link, placed but with no entry in the layout property map. It is the
+// only observed example of the shape, so it is what the reference test compares to.
+const layoutRoot = body.tenantLayout[sheetName].pc.sheetDefs;
+const refPlaceKey = Object.keys(layoutRoot.sheetTypeDefs[0].itemDefs).filter((k) => k.indexOf('@') > -1)[0];
+if (!refPlaceKey) throw new Error('this HAR has no 紐づけ参照 to copy the shape from');
+const refParentKey = refPlaceKey.split('@')[0];
+const refColumnKey = refPlaceKey.split('@')[1];
+const refParentDef = dDefs[refParentKey];
+if (!refParentDef) throw new Error('the 紐づけ参照 parent link is not in the design response');
+const refSheet = refParentDef.itemTypeDef.sheetName;
+const refColumnDef = refParentDef.itemTypeDef.itemDefs[refPlaceKey];
+if (!refColumnDef) throw new Error('the referenced column is not nested in its link');
+
 const revDef = createdDef.itemTypeDef.reverseRelationItemDef;
 const selfLabel = revDef.labelName.match(/[（(]([^（）()]+)[）)]\s*$/)[1];
 const idKey = Object.keys(donorDef.itemTypeDef.itemDefs).find((k) => /\.id$/.test(k));
@@ -51,7 +66,12 @@ const atoms = [
   [createdDef.labelName, '追加項目'],
   [selfLabel, 'このシート'],
   [String(idDef.labelName || '').replace(/(ID|コード|CODE)$/i, ''), '相手シート'],
-  [donorDef.labelName, '既存の紐づけ']
+  [donorDef.labelName, '既存の紐づけ'],
+  [refSheet, 'sheet_10000000000003'],
+  [refSheet.replace('sheet_', 'appextender_'), 'appextender_10000000000003'],
+  [refParentDef.labelName, '参照元の紐づけ'],
+  [refColumnDef.labelName, '参照する項目'],
+  [String(refColumnDef.columnName || ''), 'col10000']
 ].filter(([a]) => a).sort((x, y) => y[0].length - x[0].length);
 
 function scrub(v) {
@@ -87,8 +107,33 @@ const out = {
 const text = JSON.stringify(out);
 const leaks = atoms.map(([from]) => from).filter((a) => a.length > 2 && text.indexOf(a) >= 0);
 if (leaks.length) throw new Error('fixture still contains source values: ' + leaks.join(', '));
-if (/[一-龥ぁ-んァ-ヶ]/.test(text.replace(/このシート|相手シート|追加項目|既存の紐づけ/g, '')))
+const KNOWN = /このシート|相手シート|追加項目|既存の紐づけ|参照元の紐づけ|参照する項目|以内で入力してください/g;
+if (/[一-龥ぁ-んァ-ヶ]/.test(text.replace(KNOWN, '')))
   throw new Error('fixture still contains unexpected Japanese text — inspect before committing');
 
 fs.writeFileSync(path.join(OUT, 'relation-create.json'), JSON.stringify(out, null, 2) + '\n');
 console.log('wrote fixtures/relation-create.json');
+
+// The 紐づけ参照: what the linked sheet's own design gives for the column, and
+// the two entries it turns into. `columnDef` is that design entry — the nested
+// copy with the server's own back-pointer cleared, which is what a fresh one
+// carries. `expectedNested` is the observed nested entry, back-pointer and all.
+const refOut = {
+  sheet: 'sheet_10000000000003',
+  parentKey: scrub(refParentKey),
+  parentLabel: '参照元の紐づけ',
+  columnKey: scrub(refColumnKey),
+  columnLabel: '参照する項目',
+  nestedKey: scrub(refPlaceKey),
+  columnDef: Object.assign(scrub(refColumnDef), { relationalItemDefPass: [] }),
+  expectedNested: scrub(refColumnDef),
+  placement: layoutRoot.sheetTypeDefs[0].itemDefs[refPlaceKey],
+  inPropertyMap: Object.prototype.hasOwnProperty.call(layoutRoot.itemDefs, refPlaceKey)
+};
+const refText = JSON.stringify(refOut);
+const refLeaks = atoms.map(([from]) => from).filter((a) => a.length > 2 && refText.indexOf(a) >= 0);
+if (refLeaks.length) throw new Error('reference fixture still contains source values: ' + refLeaks.join(', '));
+if (/[一-龥ぁ-んァ-ヶ]/.test(refText.replace(KNOWN, '')))
+  throw new Error('reference fixture still contains unexpected Japanese text');
+fs.writeFileSync(path.join(OUT, 'reference-create.json'), JSON.stringify(refOut, null, 2) + '\n');
+console.log('wrote fixtures/reference-create.json');

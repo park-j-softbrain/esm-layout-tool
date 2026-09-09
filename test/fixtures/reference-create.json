@@ -1,0 +1,137 @@
+{
+  "sheet": "sheet_10000000000003",
+  "parentKey": "appextender.sheet_10000000000001.type_suggest13",
+  "parentLabel": "参照元の紐づけ",
+  "columnKey": "appextender.sheet_10000000000003.type_text3",
+  "columnLabel": "参照する項目",
+  "nestedKey": "appextender.sheet_10000000000001.type_suggest13@appextender.sheet_10000000000003.type_text3",
+  "columnDef": {
+    "itemId": "appextender.sheet_10000000000003.type_text3",
+    "itemType": "STRING",
+    "relationalItemDefPass": [],
+    "refererFunctionalItems": [],
+    "itemTypeDef": {
+      "@type": "StringItemTypeDef",
+      "messages": {
+        "MESSAGE_KEY_16": {
+          "length": 500,
+          "param": [
+            500
+          ],
+          "message": "{0}以内で入力してください。"
+        }
+      },
+      "validator": null,
+      "allowHalfWidthNumeric": false,
+      "allowHalfWidthAlphabet": false,
+      "allowFullWidth": false,
+      "asPassword": false,
+      "isNameItem": false
+    },
+    "sheetName": "sheet_10000000000003",
+    "sheetId": 0,
+    "isSheetReferenceItemDef": true,
+    "isKey": false,
+    "isSystemColumn": false,
+    "serviceName": "appextender",
+    "entityName": "appextender_10000000000003",
+    "columnName": "col10000",
+    "isKeywordSearchItem": false,
+    "isName": false,
+    "isRequired": false,
+    "labelName": "参照する項目",
+    "defaultValue": {
+      "ref": "",
+      "applyValue": "none",
+      "reference": null,
+      "value": "",
+      "options": {}
+    },
+    "isDisabled": false,
+    "isEditable": true,
+    "itemOrder": 12,
+    "isMaster": false,
+    "isInherit": false,
+    "isDefault": false,
+    "explanation": "",
+    "difference": null,
+    "authority": null,
+    "preSheetItemDefInfo": null,
+    "isDefaultReferenced": false,
+    "isExcludeReadTarget": false,
+    "isGroupMaxTarget": false,
+    "isGroupMinTarget": false,
+    "isGroupCountTarget": false,
+    "isFixedItemDef": null,
+    "containsPrefix": false,
+    "activityTimeSystemMessageKey": null
+  },
+  "expectedNested": {
+    "itemId": "appextender.sheet_10000000000003.type_text3",
+    "itemType": "STRING",
+    "relationalItemDefPass": [
+      "appextender.sheet_10000000000001.type_suggest13"
+    ],
+    "refererFunctionalItems": [],
+    "itemTypeDef": {
+      "@type": "StringItemTypeDef",
+      "messages": {
+        "MESSAGE_KEY_16": {
+          "length": 500,
+          "param": [
+            500
+          ],
+          "message": "{0}以内で入力してください。"
+        }
+      },
+      "validator": null,
+      "allowHalfWidthNumeric": false,
+      "allowHalfWidthAlphabet": false,
+      "allowFullWidth": false,
+      "asPassword": false,
+      "isNameItem": false
+    },
+    "sheetName": "sheet_10000000000003",
+    "sheetId": 0,
+    "isSheetReferenceItemDef": true,
+    "isKey": false,
+    "isSystemColumn": false,
+    "serviceName": "appextender",
+    "entityName": "appextender_10000000000003",
+    "columnName": "col10000",
+    "isKeywordSearchItem": false,
+    "isName": false,
+    "isRequired": false,
+    "labelName": "参照する項目",
+    "defaultValue": {
+      "ref": "",
+      "applyValue": "none",
+      "reference": null,
+      "value": "",
+      "options": {}
+    },
+    "isDisabled": false,
+    "isEditable": true,
+    "itemOrder": 12,
+    "isMaster": false,
+    "isInherit": false,
+    "isDefault": false,
+    "explanation": "",
+    "difference": null,
+    "authority": null,
+    "preSheetItemDefInfo": null,
+    "isDefaultReferenced": false,
+    "isExcludeReadTarget": false,
+    "isGroupMaxTarget": false,
+    "isGroupMinTarget": false,
+    "isGroupCountTarget": false,
+    "isFixedItemDef": null,
+    "containsPrefix": false,
+    "activityTimeSystemMessageKey": null
+  },
+  "placement": {
+    "order": 21,
+    "displaySpan": 1
+  },
+  "inPropertyMap": false
+}

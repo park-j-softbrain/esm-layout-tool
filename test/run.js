@@ -182,13 +182,12 @@ console.log('\n=== spec column order + unsupported types ===');
     assert.strictEqual(r.errors.length,0,r.errors.join('; '));
     assert.strictEqual(r.items[0].label,'担当者名');
   });
-  check('rejects 演算/紐づけ参照 with an explanation', ()=>{
+  check('rejects 演算 with an explanation', ()=>{
     const r=T.parseSpec(fs2.readFileSync(__dirname+'/../sample-unsupported.tsv','utf8'));
     assert.strictEqual(r.items.length,0);
-    assert.strictEqual(r.errors.length,3,r.errors.join('; '));
+    assert.strictEqual(r.errors.length,2,r.errors.join('; '));
     assert.ok(r.errors.every(e=>/追加できません/.test(e)),r.errors.join('; '));
     assert.ok(/計算式/.test(r.errors[0]));
-    assert.ok(/紐づけ先のどの項目/.test(r.errors[2]),r.errors[2]);
   });
   check('all 14 sample rows build a valid payload', ()=>{
     const tpl=loadPut('pulldown');
@@ -313,6 +312,7 @@ console.log('\n=== itemTypeDef shapes match the server model ===');
   const kind=v=>v===null?'null':Array.isArray(v)?'array':typeof v;
   Object.keys(T.TYPES).forEach(typeName=>{
     const cfg=T.TYPES[typeName];
+    if(cfg.reference) return;  // no itemTypeDef of its own; the 紐づけ参照 block covers it
     const realKey=Object.keys(real).find(k=>new RegExp('\\.'+cfg.prefix+'\\d+$').test(k));
     if(!realKey) return;
     if(cfg.relation) return;   // needs a link target; covered by the replay below
@@ -960,13 +960,14 @@ console.log('\n=== every spec row is accounted for in the dry run ===');
 {
   check('rejected rows are returned with their line, label and reason', ()=>{
     const r=T.parseSpec(['契約支店\t紐付け参照\t案件',
+                         '契約店\t紐付け参照\t案件',
                          '工事担当\t紐付け\t',
                          '改良の有無\tプルダウン\t\t',
                          '物件名\tテキスト\t\t'].join('\n'));
-    assert.strictEqual(r.items.length,1,'the good row should survive its neighbours');
-    assert.strictEqual(r.items[0].label,'物件名');
+    assert.strictEqual(r.items.length,3,'the good rows should survive their neighbours');
+    assert.strictEqual(r.items[2].label,'物件名');
     assert.deepStrictEqual(r.errorRows.map(e=>[e.line,e.label]),
-      [[1,'契約支店'],[2,'工事担当'],[3,'改良の有無']]);
+      [[3,'工事担当'],[4,'改良の有無']]);
     assert.strictEqual(r.errorRows.length,r.errors.length,'errorRows and errors disagree');
     r.errorRows.forEach(e=>{
       assert.ok(e.reason,'no reason for '+e.label);
@@ -1194,14 +1195,14 @@ console.log('\n=== safety: a run that goes wrong stops ===');
     assert.ok(!/for *\(|while *\(|attempt/i.test(rq),'request() grew a retry loop');
   });
   check('1件ずつ stops on a concurrent edit instead of hammering', ()=>{
-    const loop=src.slice(src.indexOf('for (let i = 0; i < adds.length; i++)'),
+    const loop=src.slice(src.indexOf('for (let i = 0; i < groups.length; i++)'),
                          src.indexOf('S.plan = { add: [], skip: S.plan.skip };'));
     assert.ok(/e\.concurrent/.test(loop),'a concurrent edit does not stop the loop');
     assert.ok(/break;/.test(loop),'the loop never breaks');
     assert.ok(/前の失敗により中止/.test(loop),'the skipped remainder is not reported');
   });
   check('transactions are paced apart', ()=>{
-    const loop=src.slice(src.indexOf('for (let i = 0; i < adds.length; i++)'),
+    const loop=src.slice(src.indexOf('for (let i = 0; i < groups.length; i++)'),
                          src.indexOf('S.plan = { add: [], skip: S.plan.skip };'));
     assert.ok(/setTimeout\(r, \d+\)/.test(loop),'a 130-item run fires 500+ requests back to back');
   });
@@ -1336,5 +1337,161 @@ console.log('\n=== safety: one write at a time ===');
     assert.ok(/S\.design = null;\s*\n\s*loadDesign\(\)/.test(ap),'apply() does not clear the item list before re-reading it');
     const one=src.slice(src.indexOf('async function applyOneByOne'),src.indexOf('function sheetMatchesPage'));
     assert.ok(/S\.design = null;[^\n]*\n\s*loadDesign\(\)/.test(one),'applyOneByOne() does not clear the item list before re-reading it');
+  });
+}
+
+console.log('\n=== 紐づけ参照 (a column carried through a link) ===');
+{
+  const F=readFix('relation-create.json');
+  const R=readFix('reference-create.json');
+  // The reference fixture came off a third sheet; move it onto the link target
+  // this scaffolding already builds, so the two fixtures compose.
+  const remap=(o)=>JSON.parse(JSON.stringify(o)
+    .split(R.sheet).join(F.target)
+    .split(R.sheet.replace('sheet_','appextender_')).join(F.target.replace('sheet_','appextender_')));
+  const COL=remap(R.columnKey);
+  const COL_LABEL=R.columnLabel;
+
+  function refState(extraTargetCols){
+    const donorKey='appextender.'+F.sheetName+'.type_suggest2';
+    const donor={itemType:'SB_RELATION',labelName:'既存の紐づけ',itemOrder:F.itemOrder-1,
+      itemTypeDef:{'@type':'SBRelationItemTypeDef',sheetName:F.target,
+        itemDefs:{[donorKey+'@'+F.donorIdDef.itemId]:F.donorIdDef},
+        reverseRelationItemDef:{labelName:'既存の紐づけ（'+F.selfLabel+'）'}}};
+    S.design={sheetDefs:[{sheetName:F.sheetName,itemDefs:{[donorKey]:donor}}]};
+    S.sheetName=F.sheetName;
+    const place={},lay={};
+    for(let i=1;i<=115;i++){
+      const k='appextender.'+F.sheetName+'.type_suggest'+i;
+      lay[k]={label:{readOnly:false,hideProperty:false}}; place[k]={order:2+i,displaySpan:1};
+    }
+    S.tpl={url:'https://gw.example/sheet-fs/v1/design/layout/'+F.sheetName+'/part',headers:{},
+      body:{tenantLayout:{[F.sheetName]:{pc:{sheetDefs:{itemDefs:lay,sheetTypeDefs:[{itemDefs:place}]}}}},
+            sheetDefs:[{sheetId:1,sheetName:F.sheetName,itemDefs:{}}],deleteItemKeys:[],
+            initialSheetAuthority:{},adminSettings:{}}};
+    // The linked sheet, as its own /design returns it: the column carries the
+    // server's back-pointer, which a freshly created copy must not.
+    const tDefs={[COL]:remap(R.expectedNested)};
+    Object.assign(tDefs,extraTargetCols||{});
+    for(let i=1;i<=101;i++) tDefs['appextender.'+F.target+'.type_suggest'+i]={itemOrder:i+23,itemType:'SB_RELATION'};
+    const tLay={}; Object.keys(tDefs).forEach(k=>{tLay[k]={label:{readOnly:false,hideProperty:false}};});
+    S.targetMaxOrder={};
+    S.targetDesign={[F.target]:{sheetDefs:[{sheetName:F.target,itemDefs:tDefs}]}};
+    S.targetLayout={[F.target]:{[F.target]:{pc:{sheetDefs:{itemDefs:tLay,sheetTypeDefs:[{itemDefs:{}}]}}}}};
+  }
+  const link=(label,target)=>({line:9,label:label,type:'紐づけ項目',required:false,
+    target:target||'相手シート',options:[],span:1,explanation:''});
+  const ref=(label,target,line)=>({line:line||1,label:label,type:'紐づけ参照',required:false,
+    target:target||'相手シート',options:[],span:1,explanation:''});
+
+  check('the referenced column is copied verbatim, with the back-pointer cleared', ()=>{
+    refState();
+    S.spec=[ref(COL_LABEL),link('工事担当')];
+    S.plan=T.buildPlan();
+    assert.strictEqual(S.plan.add.length,2,S.plan.skip.map(s=>s.reason).join('; '));
+    const parent=S.plan.add.find(a=>a.rel), r=S.plan.add.find(a=>a.ref);
+    assert.strictEqual(r.ref.parentKey,parent.key,'the reference did not attach to the link');
+    assert.strictEqual(r.ref.key,parent.key+'@'+COL,'nested key');
+    const pl=T.buildPayload();
+    const nested=pl.sheetDefs[0].itemDefs[parent.key].itemTypeDef.itemDefs;
+    assert.deepStrictEqual(nested[r.ref.key],remap(R.columnDef));
+  });
+
+  check('a reference is placed but gets no layout property entry', ()=>{
+    refState();
+    S.spec=[ref(COL_LABEL),link('工事担当')];
+    S.plan=T.buildPlan();
+    const r=S.plan.add.find(a=>a.ref);
+    const pl=T.buildPayload();
+    const root=pl.tenantLayout[F.sheetName].pc.sheetDefs;
+    assert.ok(root.sheetTypeDefs[0].itemDefs[r.ref.key],'the reference was not placed');
+    assert.strictEqual(root.itemDefs[r.ref.key],undefined,
+      'the reference got a property entry; the real sheet has none for its own');
+    assert.strictEqual(R.inPropertyMap,false,'the fixture disagrees: rebuild it');
+    assert.strictEqual(pl.sheetDefs[0].itemDefs[r.ref.key],undefined,
+      'a reference must not become an item of its own');
+  });
+
+  check('a reference creates no item and no reverse field of its own', ()=>{
+    refState();
+    S.spec=[ref(COL_LABEL),link('工事担当')];
+    S.plan=T.buildPlan();
+    const pl=T.buildPayload();
+    assert.strictEqual(Object.keys(pl.sheetDefs[0].itemDefs).length,1,'only the link is an item');
+    const tgt=pl.tenantLayout[F.target].pc.sheetDefs.itemDefs;
+    const added=Object.keys(tgt).filter(k=>k.indexOf('type_suggest')>-1&&!S.targetLayout[F.target][F.target].pc.sheetDefs.itemDefs[k]);
+    assert.strictEqual(added.length,1,'the link writes one reverse field; the reference must add none');
+  });
+
+  check('a reference resolves a link written later in the list', ()=>{
+    refState();
+    S.spec=[ref(COL_LABEL,'相手シート',14),link('工事担当')];   // the real spec's order
+    S.plan=T.buildPlan();
+    assert.strictEqual(S.plan.add.length,2,S.plan.skip.map(s=>s.reason).join('; '));
+    assert.ok(S.plan.add[0].ref,'the reference kept its place in the list');
+    assert.ok(S.plan.add[1].rel);
+  });
+
+  check('a reference is refused when its link is not in the same list', ()=>{
+    refState();
+    S.spec=[ref(COL_LABEL)];
+    S.plan=T.buildPlan();
+    assert.strictEqual(S.plan.add.length,0,'a reference was planned with no link to hang on');
+    assert.ok(/同じ項目リストにありません/.test(S.plan.skip[0].reason),S.plan.skip[0].reason);
+  });
+
+  check('a reference is refused when the linked sheet has no such column', ()=>{
+    refState();
+    S.spec=[ref('ないはずの項目'),link('工事担当')];
+    S.plan=T.buildPlan();
+    assert.strictEqual(S.plan.add.length,1,'only the link should survive');
+    assert.ok(/という項目がありません/.test(S.plan.skip[0].reason),S.plan.skip[0].reason);
+  });
+
+  check('a reference is refused when two links could be the one meant', ()=>{
+    refState();
+    S.spec=[ref(COL_LABEL),link('工事担当'),link('工事担当2')];
+    S.plan=T.buildPlan();
+    assert.strictEqual(S.plan.add.length,2,'both links, no reference');
+    assert.ok(/複数あります/.test(S.plan.skip[0].reason),S.plan.skip[0].reason);
+  });
+
+  check('the same column cannot be pulled through the same link twice', ()=>{
+    refState();
+    S.spec=[ref(COL_LABEL),ref(COL_LABEL,'相手シート',2),link('工事担当')];
+    S.plan=T.buildPlan();
+    assert.strictEqual(S.plan.add.length,2,'a duplicate reference was planned');
+    assert.ok(/二重に参照/.test(S.plan.skip[0].reason),S.plan.skip[0].reason);
+  });
+
+  check('a reference row with no sheet named is rejected while parsing', ()=>{
+    const r=T.parseSpec('契約支店\t紐付け参照\t\n物件名\tテキスト\t');
+    assert.strictEqual(r.items.length,1,'the reference should not have been accepted');
+    assert.ok(/どのシートから引くか/.test(r.errors[0]),r.errors.join('; '));
+  });
+
+  check('a reference sent without its link is refused, not written half', ()=>{
+    refState();
+    S.spec=[ref(COL_LABEL),link('工事担当')];
+    S.plan=T.buildPlan();
+    const r=S.plan.add.find(a=>a.ref);
+    assert.throws(()=>T.buildPayload([r]),/同じ送信に含まれていません/);
+  });
+
+  check('1件ずつ sends a link and its references as one transaction', ()=>{
+    const src=require('fs').readFileSync(__dirname+'/../esm-layout-tool.js','utf8');
+    assert.ok(/function writeGroups/.test(src),'there is no grouping for 1件ずつ');
+    const loop=src.slice(src.indexOf('const groups = writeGroups(adds);'),
+                         src.indexOf('S.plan = { add: [], skip: S.plan.skip };'));
+    assert.ok(/await writeBatch\(g\)/.test(loop),'the group is not written as one batch');
+  });
+
+  check('references take a grid slot like any other field', ()=>{
+    refState();
+    S.spec=[ref(COL_LABEL),link('工事担当')];
+    S.plan=T.buildPlan();
+    const orders=S.plan.add.map(a=>a.order).sort((x,y)=>x-y);
+    assert.strictEqual(orders.length,2);
+    assert.strictEqual(orders[1]-orders[0],1,'two 1-cell fields should sit side by side');
   });
 }

@@ -147,11 +147,20 @@ Worth five more minutes, because these are what the operator will hit:
 
 ## What to tell me afterwards
 
-- whether 見出し was accepted — it is the last type with no confirmed create
+- whether 見出し was accepted — it is one of the two types with no confirmed create
+- whether a 紐づけ参照 landed: it should appear on the layout showing the linked
+  sheet's own label, and it should NOT appear as a new field in the item list
 - for a 紐づけ項目 run: what the target sheet looked like afterwards, and whether
   the reverse field's name and position were what eSM produces by hand
 - the HTTP status and body of any failure (the log panel shows both)
 
 That closes out the type table. The remaining gaps after that are tab placement,
-which needs a sheet with 2+ custom tabs, and 演算 / 紐づけ参照, which need a
+which needs a sheet with 2+ custom tabs, and 演算（文字）/（数値）, which need a
 capture of each being created.
+
+紐づけ参照 is built from the one that already exists on the customer's sheet:
+`test/fixtures/reference-create.json` holds its nested column definition and its
+placement, and the tests reproduce both. What is still unconfirmed is that the
+linked sheet's own `GET /design` entry for a column is byte-identical to the
+nested copy — everything observed says it is, but no capture of a 紐づけ参照
+being created exists. Add one field first and check the layout.
